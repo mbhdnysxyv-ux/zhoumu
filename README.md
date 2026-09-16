@@ -6,9 +6,9 @@
 
 橙白配色、只有一屏、**不联网、不要账号、不收集任何数据**。
 
-| 主界面 | 设置里的课表 | 桌面小组件 |
+| 主界面 | 课表 | 桌面小组件 |
 | :---: | :---: | :---: |
-| ![主界面](Screenshots/01-home.png) | ![设置](Screenshots/02-settings.png) | ![小组件](Screenshots/04-widget-medium.png) |
+| ![主界面](Screenshots/01-home.png) | ![课表](Screenshots/02-settings.png) | ![小组件](Screenshots/03-widgets.jpg) |
 
 ---
 
