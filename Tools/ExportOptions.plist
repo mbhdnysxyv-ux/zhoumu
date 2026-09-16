@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 上传到 App Store Connect（供 TestFlight 使用） -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+
+	<!-- 改成你自己的 Team ID（Xcode ▸ Settings ▸ Accounts 里可以看到） -->
+	<key>teamID</key>
+	<string>REPLACE_WITH_YOUR_TEAM_ID</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- 不要自动改版本号，版本号由脚本显式控制 -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

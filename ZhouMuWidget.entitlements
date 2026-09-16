@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 必须和 ZhouMu.entitlements 里的 group 完全相同，否则小组件读不到 App 写的设置。
+	     group.$(APP_BUNDLE_ID) 里的小组件 Bundle ID 是 com.x.y.widget，
+	     SharedStorage 会自动去掉 .widget 后缀，推导出同一个 group。 -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.$(APP_BUNDLE_ID)</string>
+	</array>
+</dict>
+</plist>

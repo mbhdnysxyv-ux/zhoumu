@@ -1,0 +1,22 @@
+# Xcode / 构建产物
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# 签名相关，绝对不要提交
+*.mobileprovision
+*.p12
+*.cer
+
+# IPA 走 GitHub Release 分发，不进 git 历史
+*.ipa
+
+# 脚本用的临时目录
+.cache/
+.render/
+
+# macOS
+.DS_Store
