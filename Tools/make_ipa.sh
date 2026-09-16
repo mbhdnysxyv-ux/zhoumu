@@ -42,7 +42,9 @@ if [ "$MODE" = "unsigned" ]; then
   echo "完成：$OUT"
   echo "签名状态：$(codesign -dv "$APP" 2>&1 | head -1 || true)"
   echo
-  echo "安装方式见 发布到TestFlight.md 第 0 节（无签名 IPA 怎么装）。"
+  echo "安装：把这个 IPA 拖进 Sideloadly / AltStore / ESign 等自签工具，用自己的 Apple ID 签名安装。"
+  echo "注意：小组件扩展（PlugIns/ZhouMuWidget.appex）必须一起重签，否则小组件用不了。"
+  echo "      自签后 App Group 权限通常会丢失，小组件会自动回退成「长按 ▸ 编辑小组件」手动设置。"
   exit 0
 fi
 

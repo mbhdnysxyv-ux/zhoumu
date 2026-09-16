@@ -1,6 +1,6 @@
 #!/bin/bash
 # 检查「把周目装到自己 iPhone」需要的东西是否就绪。
-# 用法：双击工程根目录的 检查iPhone.command，或在此目录执行 ./Tools/device_check.sh
+# 用法：在工程根目录执行 ./Tools/device_check.sh
 set -uo pipefail
 cd "$(dirname "$0")/.."
 

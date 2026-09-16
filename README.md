@@ -83,7 +83,11 @@
 
 ### 方式三：上架 / TestFlight
 
-需要付费开发者账号（99 美元/年）。流程见 **[发布到TestFlight.md](发布到TestFlight.md)**。
+需要付费开发者账号（99 美元/年）。在 Xcode 里 **Product ▸ Archive** 然后上传到 App Store Connect，
+或者用 `./Tools/release.sh`（构建号会自动递增）。
+
+> 想长期公开分发的话，上架 App Store 比 TestFlight 合适 —— TestFlight 的构建只有 **90 天**寿命，
+> 到期要重新上传，否则所有人打开都会提示「Beta 已过期」。
 
 ---
 
@@ -170,7 +174,7 @@ Tools/                       开发脚本，见下
 ./Tools/verify.sh          # 97 项断言 + App/小组件编译检查 + 生成图标
 ./Tools/render_ui.sh       # 把主界面、设置页渲染成 PNG
 ./Tools/render_widget.sh   # 把小组件渲染成 PNG
-./Tools/device_check.sh    # 检查「装到自己 iPhone」还缺什么（双击 检查iPhone.command 也行）
+./Tools/device_check.sh    # 检查「装到自己 iPhone」还缺什么
 ./Tools/make_ipa.sh        # 打无签名 IPA
 ```
 
