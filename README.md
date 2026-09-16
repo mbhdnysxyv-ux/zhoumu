@@ -108,8 +108,17 @@ APP_BUNDLE_ID = com.zhoumu.weekdisplay;
 
 ### 2. 选签名团队
 
-Xcode ▸ 选中 **ZhouMu** target ▸ **Signing & Capabilities** ▸ **Team** 选你自己的账号。
-**小组件 target（ZhouMuWidget）也要选同一个 Team**，否则会报 `requires a development team`。
+> ⚠️ 工程里带着**作者的 Team ID**（`M39NNXS7CK`），这是为了让 App Group 能正常注册。
+> **你必须换成自己的**，否则会报「no profiles for ...」。
+
+1. Xcode ▸ 选中 **ZhouMu** target ▸ **Signing & Capabilities** ▸ **Team** 改成你自己的账号
+2. **小组件 target（ZhouMuWidget）也要选同一个 Team**，否则会报 `requires a development team`
+
+改完之后 Xcode 会把新的 Team ID 写回 `project.pbxproj`（`TargetAttributes` 里 2 处 +
+`DEVELOPMENT_TEAM` 4 处），直接提交即可。
+
+> 如果你 fork 之后想彻底不带作者信息，也可以把这几处的值删成空字符串，
+> 代价是每次重新 clone 都要在 Xcode 里手动选一次 Team。
 
 ### 3. 如果报 App Group 相关错误
 

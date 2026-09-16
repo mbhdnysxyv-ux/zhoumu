@@ -156,9 +156,13 @@
 				TargetAttributes = {
 					AB0000000000000000000004 = {
 						CreatedOnToolsVersion = 16.2;
+						DevelopmentTeam = M39NNXS7CK;
+						ProvisioningStyle = Automatic;
 					};
 					AB0000000000000000000010 = {
 						CreatedOnToolsVersion = 16.2;
+						DevelopmentTeam = M39NNXS7CK;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -352,9 +356,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ZhouMu.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "周目";
@@ -370,7 +375,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				CODE_SIGN_ENTITLEMENTS = ZhouMu.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -384,9 +388,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ZhouMu.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "周目";
@@ -402,7 +407,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				CODE_SIGN_ENTITLEMENTS = ZhouMu.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -414,9 +418,10 @@
 		AB0000000000000000000018 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZhouMuWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "ZhouMuWidget-Info.plist";
@@ -428,7 +433,6 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				CODE_SIGN_ENTITLEMENTS = ZhouMuWidget.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).widget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -441,9 +445,10 @@
 		AB0000000000000000000019 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZhouMuWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "ZhouMuWidget-Info.plist";
@@ -455,7 +460,6 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.2;
-				CODE_SIGN_ENTITLEMENTS = ZhouMuWidget.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).widget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

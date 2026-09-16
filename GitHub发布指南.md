@@ -12,21 +12,92 @@
 
 ---
 
-## 二、登录 GitHub CLI
+## 二、登录 GitHub CLI（gh）
 
-`gh` 已经装好了（`/opt/homebrew/bin/gh`），只差登录：
+`gh` 已经装好了（`/opt/homebrew/bin/gh`），只差登录。
+
+> **为什么要你自己在终端里跑**：这个流程需要你在浏览器里点「授权」，
+> 我没法替你点，也没法把浏览器的登录态转过来。
+
+### 方式 A：浏览器授权（推荐）
+
+在你自己的**终端**里执行：
 
 ```bash
 gh auth login
 ```
 
-按提示选：**GitHub.com** → **HTTPS** → **Login with a web browser** → 浏览器里授权。
+然后按下面这样选（用方向键选、回车确认）：
 
-验证：
+| 提示 | 选什么 |
+| --- | --- |
+| What account do you want to log into? | **GitHub.com** |
+| What is your preferred protocol for Git operations? | **HTTPS** |
+| Authenticate Git with your GitHub credentials? | **Yes** |
+| How would you like to authenticate GitHub CLI? | **Login with a web browser** |
+
+接着终端会打印：
+
+```
+! First copy your one-time code: 1234-ABCD
+Press Enter to open github.com in your browser...
+```
+
+**按顺序做：**
+
+1. **先把那串一次性代码抄下来**（形如 `1234-ABCD`）
+2. 按 **回车**，浏览器会自动打开 <https://github.com/login/device>
+3. 页面上点 **Continue**，粘进刚才的代码，再点 **Continue**
+4. 点 **Authorize github**
+5. 回到终端，看到 `✓ Logged in as 你的用户名` 就成功了
+
+> 你平时用 Apple ID 登录 GitHub 完全没问题 —— 第 3 步那个页面上直接选
+> **Sign in with Apple** 就行。
+
+**想跳过前面几个选择题**，用这一条命令直接进授权：
+
+```bash
+gh auth login --hostname github.com --git-protocol https --web
+```
+
+### 方式 B：用 Personal Access Token（浏览器打不开时用）
+
+1. 打开 <https://github.com/settings/tokens> → **Generate new token (classic)**
+2. 勾选 **repo** 权限即可（建 Release 够用）
+3. 生成后复制 token，然后：
+
+```bash
+gh auth login --with-token <<< '把token粘在这里'
+```
+
+### 验证是否成功
 
 ```bash
 gh auth status
 ```
+
+应该看到：
+
+```
+github.com
+  ✓ Logged in to github.com account <你的用户名>
+  ✓ Git operations for github.com configured to use https protocol.
+```
+
+### 常见问题
+
+**Q：提示 `Press Enter to open...`，按了没反应？**
+A：确保焦点在那个终端窗口里再按回车。还是不行就手动访问 <https://github.com/login/device>。
+
+**Q：一次性代码过期了？**
+A：代码约 15 分钟有效。过期就重新跑一次 `gh auth login`，会生成新的。
+
+**Q：想换账号 / 退登？**
+A：`gh auth logout` 然后重新登录。
+
+**Q：GitHub 账号还没建？**
+A：先去 <https://github.com/signup> 注册，可以用 Apple ID 直接注册。
+
 
 ---
 
