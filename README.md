@@ -59,6 +59,10 @@
 
 **要求：iOS 17 或更高。**
 
+> 📛 装好后桌面上的名字是 **ZhouMu**（不是中文「周目」）。
+> 这是为了兼容 AltStore / AltServer —— 它读取 App 名字时会过滤掉所有非 ASCII 字符，
+> 中文名会被清成空字符串，导致 Apple 拒绝签发。App 内部界面仍然是中文的。
+
 ### 方式一：装到自己的 iPhone（用 Xcode，免费 Apple ID）
 
 不需要开发者账号，完整步骤见 **[装到自己的iPhone.md](装到自己的iPhone.md)**。
