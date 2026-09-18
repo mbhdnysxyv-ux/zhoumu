@@ -308,9 +308,9 @@ A：App 里改设置会立刻通知小组件刷新；如果 App 已被系统杀�
 
 ## 更新日志
 
-当前版本 **1.3**，完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。
+当前版本 **1.4**，完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。
 
-![v1.3 更新内容](Screenshots/update-1.3.png)
+![v1.4 更新内容](Screenshots/update-1.4.png)
 
 ## 许可证
 
