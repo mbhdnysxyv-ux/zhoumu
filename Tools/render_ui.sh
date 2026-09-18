@@ -32,7 +32,9 @@ s = s.replace(".datePickerStyle(.wheel)", "")
 s = s.replace(".navigationBarTitleDisplayMode(.inline)", "")
 s = re.sub(r'^\s*\.toolbar\(\.hidden, for: \.navigationBar\)\n', '', s, flags=re.M)
 # 4) 实时活动在 macOS 上不可用：掏空函数体，保持括号平衡
-s = s.replace("await LiveActivityManager.shared.sync(settings: snapshot)", "")
+# 调用改成了多行，用正则跨行匹配
+s = re.sub(r'await LiveActivityManager\.shared\.sync\(.*?\)\n', '', s, flags=re.S)
+s = re.sub(r'BackgroundRefresh\.schedule\(settings: [^)]*\)\n', '', s)
 open(dst, "w", encoding="utf-8").write(s)
 PYEOF
 

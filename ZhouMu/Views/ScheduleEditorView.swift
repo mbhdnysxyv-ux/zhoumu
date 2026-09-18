@@ -11,6 +11,8 @@ struct ScheduleEditorView: View {
     let kind: ScheduleKind
 
     @State private var selectedDay = SemesterCalculator.dayIndexInWeek(for: Date())
+    /// 「每天单独」模式下，正在编辑哪一天的时间。
+    @State private var selectedTimeDay = SemesterCalculator.dayIndexInWeek(for: Date())
     @State private var selectedRow = 0
     @State private var editing: EditTarget?
     @State private var timesTarget: PeriodTarget?
@@ -24,7 +26,9 @@ struct ScheduleEditorView: View {
 
     private struct PeriodTarget: Identifiable {
         let period: Int
-        var id: Int { period }
+        /// 「每天单独」模式下是哪一天；统一模式为 nil。
+        let day: Int?
+        var id: String { "\(day ?? -1)-\(period)" }
     }
 
     private var table: ScheduleTable { settings.table(kind) }
@@ -59,7 +63,7 @@ struct ScheduleEditorView: View {
                 .environmentObject(settings)
         }
         .sheet(item: $timesTarget) { target in
-            PeriodTimeEditorView(kind: kind, period: target.period)
+            PeriodTimeEditorView(kind: kind, period: target.period, day: target.day)
                 .environmentObject(settings)
         }
     }
@@ -133,21 +137,14 @@ struct ScheduleEditorView: View {
 
                     Spacer(minLength: 8)
 
-                    Stepper(value: Binding(
-                        get: { table.periodCount(day: day) },
-                        set: { newValue in
-                            var t = table
-                            t.periodsPerDay[day] = min(max(newValue, ScheduleTable.minPeriods), ScheduleTable.maxPeriods)
-                            t.normalize()
-                            settings.setTable(t, for: kind)
-                        }
-                    ), in: ScheduleTable.minPeriods...ScheduleTable.maxPeriods) {
-                        Text("\(table.periodCount(day: day)) 节")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundStyle(Palette.accent)
-                            .monospacedDigit()
+                    CountStepper(value: table.periodCount(day: day),
+                                 range: ScheduleTable.minPeriods...ScheduleTable.maxPeriods,
+                                 unit: "节") { newValue in
+                        var t = table
+                        t.periodsPerDay[day] = min(max(newValue, ScheduleTable.minPeriods), ScheduleTable.maxPeriods)
+                        t.normalize()
+                        settings.setTable(t, for: kind)
                     }
-                    .labelsHidden()
                 }
 
                 if day < ScheduleTable.dayCount - 1 {
@@ -160,11 +157,52 @@ struct ScheduleEditorView: View {
     // MARK: - 上下课时间
 
     private var timesCard: some View {
-        let count = table.periodsPerDay.max() ?? 0
+        // 统一模式：列出「最多节数」那么多行；
+        // 每天单独模式：只列当前选中那天的节数。
+        let count = table.timeMode == .perDay
+            ? table.periodCount(day: selectedTimeDay)
+            : (table.periodsPerDay.max() ?? 0)
         return SettingsCard(title: "上下课时间（可选）", caption: timesCaption) {
+            // 安排方式
+            Picker("安排方式", selection: Binding(
+                get: { table.timeMode },
+                set: { newMode in
+                    var t = table
+                    t.timeMode = newMode
+                    // 切到「每天单独」时，用当前统一的时间给每天打底，别让用户白填
+                    if newMode == .perDay { t.seedDailyTimesFromUnified() }
+                    t.normalize()
+                    settings.setTable(t, for: kind)
+                }
+            )) {
+                ForEach(TimeMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if table.timeMode == .perDay {
+                Divider().overlay(Palette.line)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(0..<ScheduleTable.dayCount, id: \.self) { day in
+                            chip(title: SemesterCalculator.weekdayColumnNames[day],
+                                 selected: day == selectedTimeDay,
+                                 highlighted: isTodayCell(day: day)) {
+                                selectedTimeDay = day
+                            }
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+
+            Divider().overlay(Palette.line)
+
             ForEach(0..<count, id: \.self) { period in
                 Button {
-                    timesTarget = PeriodTarget(period: period)
+                    timesTarget = PeriodTarget(period: period,
+                                               day: table.timeMode == .perDay ? selectedTimeDay : nil)
                 } label: {
                     HStack(spacing: 12) {
                         Text("第 \(period + 1) 节")
@@ -173,7 +211,7 @@ struct ScheduleEditorView: View {
 
                         Spacer(minLength: 8)
 
-                        if let t = table.time(forPeriod: period) {
+                        if let t = table.time(forPeriod: period, day: table.timeMode == .perDay ? selectedTimeDay : nil) {
                             Text("\(DurationText.timeOfDay(minutes: t.start)) – \(DurationText.timeOfDay(minutes: t.end))")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                                 .foregroundStyle(Palette.accent)
@@ -440,6 +478,8 @@ struct PeriodTimeEditorView: View {
 
     let kind: ScheduleKind
     let period: Int
+    /// 「每天单独」模式下是哪一天；统一模式为 nil。
+    var day: Int? = nil
 
     @State private var start = Date()
     @State private var end = Date()
@@ -500,6 +540,13 @@ struct PeriodTimeEditorView: View {
 
     private var canSave: Bool { !isEnabled || end > start }
 
+    private var headerTitle: String {
+        if let day, SemesterCalculator.weekdayShortNames.indices.contains(day) {
+            return "\(kind.label) · \(SemesterCalculator.weekdayShortNames[day]) 第 \(period + 1) 节"
+        }
+        return "\(kind.label) · 第 \(period + 1) 节"
+    }
+
     private func timeRow(label: String, date: Binding<Date>) -> some View {
         HStack {
             Text(label)
@@ -517,7 +564,7 @@ struct PeriodTimeEditorView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(kind.label) · 第 \(period + 1) 节")
+                Text(headerTitle)
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundStyle(Palette.primaryText)
                 Text("不填的话，这节课不进时间轴")
@@ -541,7 +588,7 @@ struct PeriodTimeEditorView: View {
     private func load() {
         let cal = SemesterCalculator.calendar
         let base = cal.startOfDay(for: Date())
-        if let t = table.time(forPeriod: period) {
+        if let t = table.time(forPeriod: period, day: day) {
             isEnabled = true
             start = cal.date(byAdding: .minute, value: t.start, to: base) ?? base
             end = cal.date(byAdding: .minute, value: t.end, to: base) ?? base
@@ -555,6 +602,7 @@ struct PeriodTimeEditorView: View {
 
     private func save() {
         var t = table
+        // 每天单独模式下没传 day 是调用方的问题，兜底成周一
         if isEnabled {
             let cal = SemesterCalculator.calendar
             let base = cal.startOfDay(for: Date())
@@ -565,12 +613,9 @@ struct PeriodTimeEditorView: View {
             _ = base
             let time = PeriodTime(start: startMin, end: endMin)
             guard time.isValid else { return }
-            while t.periodTimes.count <= period { t.periodTimes.append(nil) }
-            t.periodTimes[period] = time
+            t.setTime(time, day: day ?? 0, period: period)
         } else {
-            if t.periodTimes.indices.contains(period) {
-                t.periodTimes[period] = nil
-            }
+            t.setTime(nil, day: day ?? 0, period: period)
         }
         settings.setTable(t, for: kind)
         dismiss()
@@ -614,5 +659,54 @@ struct SettingsCard<Content: View>: View {
                 .fill(Palette.card)
                 .shadow(color: Palette.accent.opacity(0.08), radius: 14, x: 0, y: 6)
         )
+    }
+}
+
+// MARK: - 节数加减控件
+
+/// 显示当前数值的加减控件。
+///
+/// 系统 `Stepper` 加 `.labelsHidden()` 之后只剩 `−` `+` 两个按钮，
+/// 看不到现在是几节——这正是 v1.5 要修的。这里自己画一个：
+///
+///     [ − |  8 节 | + ]
+private struct CountStepper: View {
+    let value: Int
+    let range: ClosedRange<Int>
+    var unit: String = ""
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            button(systemName: "minus", enabled: value > range.lowerBound) {
+                onChange(value - 1)
+            }
+
+            Text(unit.isEmpty ? "\(value)" : "\(value) \(unit)")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(Palette.accent)
+                .monospacedDigit()
+                .frame(minWidth: unit.isEmpty ? 34 : 52)
+
+            button(systemName: "plus", enabled: value < range.upperBound) {
+                onChange(value + 1)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Palette.accentSoft)
+        )
+    }
+
+    private func button(systemName: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(enabled ? Palette.accent : Palette.faintText)
+                .frame(width: 40, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 }

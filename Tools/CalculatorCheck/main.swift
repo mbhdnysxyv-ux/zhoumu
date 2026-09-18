@@ -511,6 +511,86 @@ expectEqual(ThemeMode.system.colorScheme == nil, true, "跟随系统时 preferre
 expectEqual(ThemeMode.light.colorScheme, ColorScheme.light, "浅色映射正确")
 expectEqual(ThemeMode.dark.colorScheme, ColorScheme.dark, "深色映射正确")
 
+// MARK: - 16. v1.5：时间安排方式（统一 / 每天单独）
+
+print("\n[16] 时间安排方式")
+
+// 16.1 默认是统一模式
+var unified = ScheduleTable(periodsPerDay: [2, 2, 2, 2, 2, 0, 0],
+                            periodTimes: [PeriodTime(start: 8 * 60, end: 8 * 60 + 45),
+                                          PeriodTime(start: 9 * 60, end: 9 * 60 + 45)])
+expectEqual(unified.timeMode, .unified, "默认是统一模式")
+expectEqual(unified.time(forPeriod: 0, day: 3)?.start, 8 * 60, "统一模式下周三第 1 节也是 8:00")
+expectEqual(unified.hasAnyTime, true, "统一模式填了时间")
+
+// 16.2 切成每天单独，并用统一的时间打底
+unified.timeMode = .perDay
+unified.seedDailyTimesFromUnified()
+expectEqual(unified.time(forPeriod: 0, day: 0)?.start, 8 * 60, "周一第 1 节继承了统一时间")
+expectEqual(unified.time(forPeriod: 0, day: 6)?.start, 8 * 60, "周日第 1 节也继承了")
+expectEqual(unified.time(forPeriod: 1, day: 6) == nil, true, "周日只有 1 节，第 2 节本来就没时间")
+
+// 16.3 改某一天不影响别的天
+unified.setTime(PeriodTime(start: 10 * 60, end: 10 * 60 + 45), day: 2, period: 0)
+expectEqual(unified.time(forPeriod: 0, day: 2)?.start, 10 * 60, "周三改成了 10:00")
+expectEqual(unified.time(forPeriod: 0, day: 0)?.start, 8 * 60, "周一没被带着改")
+expectEqual(unified.time(forPeriod: 0, day: 0)?.end, 8 * 60 + 45, "周一结束时间也没变")
+
+// 16.4 清掉某天某节
+unified.setTime(nil, day: 2, period: 0)
+expectEqual(unified.time(forPeriod: 0, day: 2) == nil, true, "清掉后周三第 1 节没时间")
+expectEqual(unified.hasAnyTime, true, "别的天还有时间，hasAnyTime 仍为真")
+
+// 16.5 空表没有时间
+var emptyTable = ScheduleTable(periodsPerDay: [1, 1, 1, 1, 1, 0, 0])
+emptyTable.timeMode = .perDay
+emptyTable.normalize()
+expectEqual(emptyTable.hasAnyTime, false, "每天单独但一节没填 → 没时间")
+
+// 16.6 每天单独模式下，时间轴按当天取
+var perDayTable = ScheduleTable(periodsPerDay: [1, 1, 1, 1, 1, 0, 0],
+                           timeMode: .perDay,
+                           subjects: ["0-0-0": "数学", "0-2-0": "数学"])
+perDayTable.setTime(PeriodTime(start: 8 * 60, end: 8 * 60 + 45), day: 0, period: 0)
+perDayTable.setTime(PeriodTime(start: 14 * 60, end: 14 * 60 + 45), day: 2, period: 0)
+let monClasses = ClassSchedule.classes(for: day(2026, 9, 14), tables: [.regular: perDayTable], displayWeek: 1)
+let wedClasses = ClassSchedule.classes(for: day(2026, 9, 16), tables: [.regular: perDayTable], displayWeek: 1)
+expectEqual(monClasses.first?.start, at(2026, 9, 14, 8, 0), "周一这节排在 8:00")
+expectEqual(wedClasses.first?.start, at(2026, 9, 16, 14, 0), "周三这节排在 14:00")
+expectEqual(ClassSchedule.classes(for: day(2026, 9, 15), tables: [.regular: perDayTable], displayWeek: 1).isEmpty,
+            true, "周二没填时间 → 不进时间轴")
+
+// 16.7 向后兼容：v1.4 存下来的 JSON 里没有 timeMode / dailyPeriodTimes
+let oldJSON = """
+{"enabled":true,"rotatesByWeek":false,"periodsPerDay":[2,2,2,2,2,0,0],
+ "periodTimes":[{"start":480,"end":525},null,null,null,null,null,null],
+ "subjects":{"0-0-0":"数学"}}
+"""
+let decoded = ScheduleTable.decode(oldJSON)
+expectEqual(decoded.enabled, true, "老数据：启用状态解出来了")
+expectEqual(decoded.periodsPerDay[0], 2, "老数据：每日节数解出来了")
+expectEqual(decoded.timeMode, .unified, "老数据没有 timeMode → 默认统一")
+expectEqual(decoded.time(forPeriod: 0, day: 0)?.start, 480, "老数据：时间没丢")
+expectEqual(decoded.subject(row: 0, day: 0, period: 0), "数学", "老数据：科目没丢")
+
+// 16.8 完全空的字符串也要能兜住
+let blank = ScheduleTable.decode("")
+expectEqual(blank.timeMode, .unified, "空字符串 → 默认统一模式")
+expectEqual(blank.periodsPerDay.count, ScheduleTable.dayCount, "空字符串 → 7 天都补齐")
+
+// 16.9 编码解码往返
+var roundTrip = perDayTable
+roundTrip.normalize()
+let back = ScheduleTable.decode(roundTrip.encoded())
+expectEqual(back.timeMode, .perDay, "往返后仍是每天单独")
+expectEqual(back.time(forPeriod: 0, day: 2)?.start, 14 * 60, "往返后周三时间还在")
+
+// 16.10 节数减少时，每天单独的时间数组跟着裁掉
+var shrink = perDayTable
+shrink.periodsPerDay[0] = 1
+shrink.normalize()
+expectEqual(shrink.dailyPeriodTimes[0].count, 1, "周一减到 1 节，时间数组也跟着变 1")
+
 // MARK: - 汇总
 
 print("\n----------------------------------------")

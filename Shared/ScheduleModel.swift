@@ -51,6 +51,23 @@ struct PeriodTime: Codable, Equatable, Sendable {
     }
 }
 
+// MARK: - 时间安排方式
+
+/// 上下课时间怎么排：所有天共用一套，还是每天各一套。
+enum TimeMode: String, Codable, CaseIterable, Sendable {
+    /// 所有天共用一套时间。
+    case unified
+    /// 每天各有一套时间。
+    case perDay
+
+    var label: String {
+        switch self {
+        case .unified: return "统一"
+        case .perDay:  return "每天单独"
+        }
+    }
+}
+
 // MARK: - 一张课表
 
 /// 一张课表的完整配置。
@@ -67,8 +84,16 @@ struct ScheduleTable: Codable, Equatable, Sendable {
     /// 每天几节。索引 0 = 周一 … 6 = 周日。
     var periodsPerDay: [Int]
 
+    /// 时间安排方式：统一（所有天共用）或每天单独。
+    var timeMode: TimeMode
+
     /// 每节的上下课时间，索引 0 = 第 1 节。可选填，`nil` 表示没填。
+    /// `timeMode == .unified` 时用这一份。
     var periodTimes: [PeriodTime?]
+
+    /// 每天各自的时间，索引 0 = 周一 … 6 = 周日。
+    /// 每个子数组索引 0 = 第 1 节。`timeMode == .perDay` 时用这一份。
+    var dailyPeriodTimes: [[PeriodTime?]]
 
     /// 科目表。key 格式 `"排-日-节"`（都是 0 基），value 是科目名；没有 key = 该格为「无」。
     var subjects: [String: String]
@@ -85,12 +110,16 @@ struct ScheduleTable: Codable, Equatable, Sendable {
     init(enabled: Bool = true,
                 rotatesByWeek: Bool = true,
                 periodsPerDay: [Int]? = nil,
+                timeMode: TimeMode = .unified,
                 periodTimes: [PeriodTime?] = [],
+                dailyPeriodTimes: [[PeriodTime?]] = [],
                 subjects: [String: String] = [:]) {
         self.enabled = enabled
         self.rotatesByWeek = rotatesByWeek
         self.periodsPerDay = periodsPerDay ?? Array(repeating: Self.defaultPeriods, count: Self.dayCount)
+        self.timeMode = timeMode
         self.periodTimes = periodTimes
+        self.dailyPeriodTimes = dailyPeriodTimes
         self.subjects = subjects
         self.normalize()
     }
@@ -108,6 +137,22 @@ struct ScheduleTable: Codable, Equatable, Sendable {
         let maxP = periodsPerDay.max() ?? Self.defaultPeriods
         if periodTimes.count < maxP {
             periodTimes.append(contentsOf: Array(repeating: nil, count: maxP - periodTimes.count))
+        }
+
+        // 每天单独模式：7 个子数组，各自补齐到该天的节数
+        if dailyPeriodTimes.count != Self.dayCount {
+            var fixed = Array(dailyPeriodTimes.prefix(Self.dayCount))
+            while fixed.count < Self.dayCount { fixed.append([]) }
+            dailyPeriodTimes = fixed
+        }
+        for day in 0..<Self.dayCount {
+            let want = periodCount(day: day)
+            if dailyPeriodTimes[day].count < want {
+                dailyPeriodTimes[day].append(contentsOf:
+                    Array(repeating: nil, count: want - dailyPeriodTimes[day].count))
+            } else if dailyPeriodTimes[day].count > want {
+                dailyPeriodTimes[day] = Array(dailyPeriodTimes[day].prefix(want))
+            }
         }
     }
 
@@ -129,20 +174,55 @@ struct ScheduleTable: Codable, Equatable, Sendable {
         rotatesByWeek ? max(1, cycleWeeks) : 1
     }
 
-    /// 某节的时间；没填或非法都返回 `nil`。
-    func time(forPeriod period: Int) -> PeriodTime? {
+    /// 某天某节的时间；没填或非法都返回 `nil`。
+    ///
+    /// `day` 传 `nil` 时按统一模式取（每天单独模式下会返回 `nil`，
+    /// 因为那种情况下"哪一节"不足以确定时间）。
+    func time(forPeriod period: Int, day: Int? = nil) -> PeriodTime? {
+        if timeMode == .perDay, let day, dailyPeriodTimes.indices.contains(day) {
+            let list = dailyPeriodTimes[day]
+            guard list.indices.contains(period), let t = list[period], t.isValid else { return nil }
+            return t
+        }
         guard periodTimes.indices.contains(period), let t = periodTimes[period], t.isValid else { return nil }
         return t
     }
 
     /// 这张表是否填过任何时间（灵动岛可用性的前提）。
     var hasAnyTime: Bool {
-        periodTimes.contains { $0?.isValid == true }
+        if timeMode == .perDay {
+            return dailyPeriodTimes.contains { list in list.contains { $0?.isValid == true } }
+        }
+        return periodTimes.contains { $0?.isValid == true }
     }
 
     /// 某个格子是否填了时间（用于判断「今天这节课能不能做提醒」）。
     func hasTime(day: Int, period: Int) -> Bool {
-        period < periodCount(day: day) && time(forPeriod: period) != nil
+        period < periodCount(day: day) && time(forPeriod: period, day: day) != nil
+    }
+
+    /// 读写某天某节的时间。统一模式下改的是共用那份；每天单独模式下改当天的。
+    mutating func setTime(_ value: PeriodTime?, day: Int, period: Int) {
+        if timeMode == .perDay, dailyPeriodTimes.indices.contains(day) {
+            guard dailyPeriodTimes[day].indices.contains(period) else { return }
+            dailyPeriodTimes[day][period] = value
+        } else {
+            guard periodTimes.indices.contains(period) else { return }
+            periodTimes[period] = value
+        }
+    }
+
+    /// 切换到「每天单独」时，把当前统一的时间当作每天的初始值，避免用户白填。
+    mutating func seedDailyTimesFromUnified() {
+        guard timeMode == .perDay else { return }
+        for day in 0..<Self.dayCount {
+            let want = periodCount(day: day)
+            var list = Array(repeating: PeriodTime?.none, count: want)
+            for period in 0..<want where periodTimes.indices.contains(period) {
+                list[period] = periodTimes[period]
+            }
+            dailyPeriodTimes[day] = list
+        }
     }
 
     // MARK: 科目读写
@@ -178,6 +258,28 @@ struct ScheduleTable: Codable, Equatable, Sendable {
     }
 
     // MARK: 序列化
+
+    // MARK: 编解码
+
+    /// v1.5 新增了 `timeMode` 和 `dailyPeriodTimes`。
+    /// 老版本存下来的 JSON 里没有这两个键，直接用合成的解码器会**整体失败**
+    /// （结果就是用户的课表被清空）。所以这里手写一份，缺键时给默认值。
+    enum CodingKeys: String, CodingKey {
+        case enabled, rotatesByWeek, periodsPerDay, timeMode, periodTimes, dailyPeriodTimes, subjects
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        rotatesByWeek = try c.decodeIfPresent(Bool.self, forKey: .rotatesByWeek) ?? true
+        periodsPerDay = try c.decodeIfPresent([Int].self, forKey: .periodsPerDay)
+            ?? Array(repeating: Self.defaultPeriods, count: Self.dayCount)
+        timeMode = try c.decodeIfPresent(TimeMode.self, forKey: .timeMode) ?? .unified
+        periodTimes = try c.decodeIfPresent([PeriodTime?].self, forKey: .periodTimes) ?? []
+        dailyPeriodTimes = try c.decodeIfPresent([[PeriodTime?]].self, forKey: .dailyPeriodTimes) ?? []
+        subjects = try c.decodeIfPresent([String: String].self, forKey: .subjects) ?? [:]
+        normalize()
+    }
 
     func encoded() -> String {
         guard let data = try? JSONEncoder().encode(self),
@@ -287,7 +389,7 @@ enum ClassSchedule {
 
             for period in 0..<count {
                 let subject = table.subject(row: row, day: day, period: period)
-                guard !subject.isEmpty, let time = table.time(forPeriod: period) else { continue }
+                guard !subject.isEmpty, let time = table.time(forPeriod: period, day: day) else { continue }
                 guard let start = calendar.date(byAdding: .minute, value: time.start, to: dayStart),
                       let end = calendar.date(byAdding: .minute, value: time.end, to: dayStart) else { continue }
                 result.append(ScheduledClass(kind: kind, subject: subject,

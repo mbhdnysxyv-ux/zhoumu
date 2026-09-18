@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-DEV_W=402; DEV_H=874                 # iPhone 17 Pro 的逻辑分辨率
+DEV_W=${SIM_DEV_W:-402}; DEV_H=${SIM_DEV_H:-874}   # 默认 iPhone 17 Pro；手表用环境变量覆盖
 BIN=build/siminput
 
 if [ ! -x "$BIN" ] || [ Tools/siminput.swift -nt "$BIN" ]; then
@@ -12,8 +12,23 @@ if [ ! -x "$BIN" ] || [ Tools/siminput.swift -nt "$BIN" ]; then
   swiftc -O Tools/siminput.swift -o "$BIN"
 fi
 
-# 取模拟器窗口几何
-GEO=$(osascript -e 'tell application "System Events" to tell process "Simulator" to get {position, size} of window 1' 2>/dev/null | tr -d ' ')
+# 取模拟器窗口几何。开着多个设备时用 SIM_WINDOW 指定窗口标题里的关键字。
+if [ -n "${SIM_WINDOW:-}" ]; then
+  GEO=$(osascript <<APPLESCRIPT 2>/dev/null | tr -d ' '
+tell application "System Events"
+  tell process "Simulator"
+    repeat with w in windows
+      if name of w contains "$SIM_WINDOW" then
+        return {position of w, size of w}
+      end if
+    end repeat
+  end tell
+end tell
+APPLESCRIPT
+)
+else
+  GEO=$(osascript -e 'tell application "System Events" to tell process "Simulator" to get {position, size} of window 1' 2>/dev/null | tr -d ' ')
+fi
 WX=$(echo "$GEO" | cut -d, -f1); WY=$(echo "$GEO" | cut -d, -f2)
 WW=$(echo "$GEO" | cut -d, -f3); WH=$(echo "$GEO" | cut -d, -f4)
 BAR=${SIM_TITLEBAR:-28}
