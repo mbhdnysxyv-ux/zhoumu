@@ -31,17 +31,25 @@ let backgroundHex: UInt32 = isDark ? 0x05080F : 0xF6F9FF
 let trackHex:      UInt32 = isDark ? 0x17253D : 0xDBEAFE
 let accentHex:     UInt32 = isDark ? 0x4C8DFF : 0x2563EB
 
-/// 深色图标再加一层很淡的中心光晕，避免整体发闷。
+/// 深色图标加一层很淡的中心光晕，避免整体发闷。
+///
+/// 用**离散同心圆**而不是 CGGradient：平滑渐变会产生上千种中间色，
+/// PNG 直接涨到 550KB；离散画法只有十几个颜色，压到 50KB 级别，观感几乎一样
+/// （图标实际显示尺寸才 60–180px，阶梯根本看不出来）。
 func drawCenterGlow(_ context: CGContext) {
-    guard isDark,
-          let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                    colors: [rgb(0x4C8DFF).copy(alpha: 0.22)!,
-                                             rgb(0x4C8DFF).copy(alpha: 0.0)!] as CFArray,
-                                    locations: [0, 1]) else { return }
-    context.drawRadialGradient(gradient,
-                               startCenter: center, startRadius: 0,
-                               endCenter: center, endRadius: CGFloat(side) * 0.62,
-                               options: [])
+    guard isDark else { return }
+    let steps = 16
+    let maxRadius = CGFloat(side) * 0.62
+    for i in stride(from: steps, through: 1, by: -1) {
+        let t = CGFloat(i) / CGFloat(steps)          // 1 → 0
+        let radius = maxRadius * t
+        let alpha = 0.022 * (1 - t) + 0.012           // 中心最亮，向外递减
+        context.setFillColor(rgb(0x4C8DFF).copy(alpha: alpha)!)
+        context.fillEllipse(in: CGRect(x: center.x - radius,
+                                       y: center.y - radius,
+                                       width: radius * 2,
+                                       height: radius * 2))
+    }
 }
 
 guard let context = CGContext(data: nil,
