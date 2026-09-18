@@ -31,7 +31,7 @@ mkdir -p "$SRC/App/Views" "$SRC/App/Models" "$SRC/Shared" "$SRC/Widget"
 for f in ZhouMu/Views/*.swift; do
   sed '/^#Preview/,$d' "$f" > "$SRC/App/Views/$(basename "$f")"
 done
-cp ZhouMu/Models/AppSettings.swift "$SRC/App/Models/"
+cp ZhouMu/Models/*.swift "$SRC/App/Models/"
 cp ZhouMu/ZhouMuApp.swift "$SRC/App/"
 cp Shared/*.swift "$SRC/Shared/"
 swiftc -typecheck -target arm64-apple-ios17.0 -sdk "$SDK" -module-cache-path "$CACHE" \
@@ -45,6 +45,16 @@ cp ZhouMuWidget/ZhouMuWidget.swift "$SRC/Widget/"
 swiftc -typecheck -target arm64-apple-ios17.0 -sdk "$SDK" -module-cache-path "$CACHE" \
   "$SRC/Widget/ZhouMuWidget.swift" "$SRC/Shared/"*.swift
 echo "小组件编译检查通过，无错误。"
+
+echo
+echo "==> 3.5/4 检查实时活动开关（NSSupportsLiveActivities）"
+LIVE=$(grep -c "INFOPLIST_KEY_NSSupportsLiveActivities = YES" ZhouMu.xcodeproj/project.pbxproj || true)
+if [ "$LIVE" -ge 2 ]; then
+  echo "已开启 NSSupportsLiveActivities（$LIVE 处配置）。"
+else
+  echo "⚠️  NSSupportsLiveActivities 未开启，灵动岛不会工作。"
+  exit 1
+fi
 
 echo
 echo "==> 4/4 生成 App 图标"

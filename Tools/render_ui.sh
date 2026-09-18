@@ -12,12 +12,34 @@ WORK="$PWD/build/UIHarness"
 rm -rf "$WORK"
 mkdir -p "$WORK/Views" "$WORK/Models"
 
-sed '/^#Preview/,$d' ZhouMu/Views/HomeView.swift > "$WORK/Views/HomeView.swift"
-# 设置页额外把 ScrollView 换成 VStack：ImageRenderer 在无宿主环境下不会布局 ScrollView 的内容，
-# 换掉只是为了能截图检查卡片排版，App 里仍然是 ScrollView。
-sed -e '/^#Preview/,$d' -e 's/ScrollView {/VStack {/' \
-    ZhouMu/Views/SettingsView.swift > "$WORK/Views/SettingsView.swift"
-cp Shared/*.swift ZhouMu/Models/AppSettings.swift "$WORK/Models/"
+# 所有视图文件都过一遍：去掉 #Preview，并把 ScrollView 换成 VStack
+# （ImageRenderer 在无宿主环境下不会布局 ScrollView 的内容，换掉只是为了截图检查排版）。
+# 只改副本，App 源码保持原样。需要绕开几处 macOS / ImageRenderer 的限制，
+# 全部由下面的 python 统一处理（sed 做不了跨行替换）。
+cat > "$WORK/strip.py" <<'PYEOF'
+import re, sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src, encoding="utf-8").read()
+s = s.split("#Preview")[0]
+# 1) TabView：ImageRenderer 在 macOS 上渲染不了它（会出黄色占位），换成直接显示第一页
+s = re.sub(r'TabView\(selection: \$page\) \{.*?\}\n\s*\.tabViewStyle\([^\n]*\)\n',
+           'firstPage\n', s, flags=re.S)
+# 2) ScrollView：无宿主环境下不布局内容
+s = s.replace("        ScrollView {", "        VStack {")
+s = s.replace("ScrollView(showsIndicators: false) {", "VStack {")
+# 3) macOS 上不可用的 API
+s = s.replace(".datePickerStyle(.wheel)", "")
+s = s.replace(".navigationBarTitleDisplayMode(.inline)", "")
+s = re.sub(r'^\s*\.toolbar\(\.hidden, for: \.navigationBar\)\n', '', s, flags=re.M)
+# 4) 实时活动在 macOS 上不可用：掏空函数体，保持括号平衡
+s = s.replace("await LiveActivityManager.shared.sync(settings: snapshot)", "")
+open(dst, "w", encoding="utf-8").write(s)
+PYEOF
+
+for f in ZhouMu/Views/*.swift; do
+  python3 "$WORK/strip.py" "$f" "$WORK/Views/$(basename "$f")"
+done
+cp Shared/*.swift ZhouMu/Models/*.swift "$WORK/Models/"
 cp Tools/UIRender/main.swift "$WORK/main.swift"
 
 swiftc -swift-version 5 -module-cache-path "$SWIFT_MODULECACHE_PATH" \

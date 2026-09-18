@@ -2,6 +2,8 @@ import SwiftUI
 
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 /// 外观模式：跟随系统 / 强制浅色 / 强制深色。
@@ -78,6 +80,10 @@ enum Palette {
     // MARK: - 工具
 
     /// 造一个跟随系统外观切换的动态色。
+    ///
+    /// - iOS（App 与小组件）：用 `UIColor` 的动态构造，跟随系统的深浅色。
+    /// - macOS（离屏渲染工具）：用 `NSColor` 的动态构造，
+    ///   这样 `ImageRenderer` + `.preferredColorScheme(.dark)` 也能渲染出深色版，方便校验配色。
     static func dynamic(light: UInt32, dark: UInt32) -> Color {
         #if canImport(UIKit)
         return Color(UIColor { traits in
@@ -85,8 +91,12 @@ enum Palette {
                 ? UIColor(hex: dark)
                 : UIColor(hex: light)
         })
+        #elseif canImport(AppKit)
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return isDark ? NSColor(hex: dark) : NSColor(hex: light)
+        })
         #else
-        // macOS 渲染工具：固定用浅色
         return Color(hex: light)
         #endif
     }
@@ -111,6 +121,17 @@ extension UIColor {
     convenience init(hex: UInt32) {
         self.init(
             red: CGFloat((hex >> 16) & 0xFF) / 255.0,
+            green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(hex & 0xFF) / 255.0,
+            alpha: 1
+        )
+    }
+}
+#elseif canImport(AppKit)
+extension NSColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
             green: CGFloat((hex >> 8) & 0xFF) / 255.0,
             blue: CGFloat(hex & 0xFF) / 255.0,
             alpha: 1

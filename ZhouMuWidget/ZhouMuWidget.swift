@@ -294,3 +294,187 @@ struct ZhouMuWidgetBundle: WidgetBundle {
         WeekWidget()
     }
 }
+
+
+// MARK: - 灵动岛 / 锁屏实时活动
+
+/// 每节课的实时活动。
+///
+/// 倒计时和进度条都用 `Text(timerInterval:)` / `ProgressView(timerInterval:)`，
+/// **由系统自己渲染**，所以即使 App 没在运行也不会停。
+@available(iOS 16.1, *)
+struct ClassActivityWidget: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: ClassActivityAttributes.self) { context in
+            LockScreenClassView(context: context)
+                .activityBackgroundTint(Palette.card)
+                .activitySystemActionForegroundColor(Palette.accent)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Label(context.state.subject, systemImage: symbol(for: context.state.phase))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(Palette.accent)
+                        .lineLimit(1)
+                }
+
+                DynamicIslandExpandedRegion(.trailing) {
+                    ClassCountdown(state: context.state, size: 15)
+                        .foregroundStyle(Palette.accentDeep)
+                }
+
+                DynamicIslandExpandedRegion(.center) {
+                    Text(context.state.caption)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Palette.secondaryText)
+                }
+
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(spacing: 6) {
+                        ClassProgress(state: context.state)
+
+                        if let next = context.state.nextStart, next > Date() {
+                            HStack {
+                                Text("下节")
+                                    .foregroundStyle(Palette.secondaryText)
+                                Spacer()
+                                Text(timerInterval: Date()...next, countsDown: true)
+                                    .monospacedDigit()
+                                    .foregroundStyle(Palette.accentDeep)
+                            }
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                        }
+                    }
+                }
+            } compactLeading: {
+                Image(systemName: symbol(for: context.state.phase))
+                    .foregroundStyle(Palette.accent)
+            } compactTrailing: {
+                ClassCountdown(state: context.state, size: 13)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.accentDeep)
+            } minimal: {
+                Image(systemName: symbol(for: context.state.phase))
+                    .foregroundStyle(Palette.accent)
+            }
+            .keylineTint(Palette.accent)
+        }
+    }
+
+    private func symbol(for phase: String) -> String {
+        switch phase {
+        case "in":      return "book.closed.fill"
+        case "rest":    return "cup.and.saucer.fill"
+        case "done":    return "checkmark.circle.fill"
+        case "none":    return "moon.zzz.fill"
+        case "evening": return "moon.stars.fill"
+        default:        return "bell.fill"
+        }
+    }
+}
+
+/// 锁屏上的卡片。
+@available(iOS 16.1, *)
+private struct LockScreenClassView: View {
+    let context: ActivityViewContext<ClassActivityAttributes>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(context.state.caption)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.secondaryText)
+
+                Spacer()
+
+                Text(context.attributes.dayTitle)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.secondaryText)
+            }
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(context.state.subject)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(Palette.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                Spacer(minLength: 10)
+
+                ClassCountdown(state: context.state, size: 17)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.accentDeep)
+            }
+
+            ClassProgress(state: context.state)
+
+            if !context.attributes.items.isEmpty {
+                Divider().overlay(Palette.line)
+
+                VStack(spacing: 4) {
+                    ForEach(context.attributes.items.prefix(5)) { item in
+                        HStack(spacing: 8) {
+                            Text(item.subject)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Palette.primaryText)
+                            Spacer(minLength: 6)
+                            Text("\(timeText(item.start)) – \(timeText(item.end))")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(Palette.secondaryText)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+    }
+
+    private func timeText(_ date: Date) -> String {
+        let c = SemesterCalculator.calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+}
+
+/// 倒计时文案：上课中显示「还剩」，否则显示「距上课」。
+@available(iOS 16.1, *)
+private struct ClassCountdown: View {
+    let state: ClassActivityAttributes.ContentState
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let end = state.currentEnd, end > Date() {
+                Text(timerInterval: Date()...end, countsDown: true)
+            } else if let start = state.nextStart, start > Date() {
+                Text(timerInterval: Date()...start, countsDown: true)
+            } else {
+                Text("—")
+            }
+        }
+        .font(.system(size: size, weight: .bold, design: .rounded))
+        .multilineTextAlignment(.trailing)
+    }
+}
+
+/// 进度条：上课中随这节课的进度走，由系统自绘。
+@available(iOS 16.1, *)
+private struct ClassProgress: View {
+    let state: ClassActivityAttributes.ContentState
+
+    var body: some View {
+        Group {
+            if let start = state.currentStart, let end = state.currentEnd, end > start {
+                ProgressView(timerInterval: start...end, countsDown: false)
+                    .tint(Palette.accent)
+            } else if state.phase == "rest" || state.phase == "done" {
+                ProgressView(value: 1.0)
+                    .tint(Palette.accent)
+            } else {
+                ProgressView(value: 0.0)
+                    .tint(Palette.accent)
+            }
+        }
+        .labelsHidden()
+    }
+}

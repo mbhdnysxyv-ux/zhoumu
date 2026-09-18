@@ -344,6 +344,9 @@ enum ClassSchedule {
     }
 
     /// 圆环 + 三行倒计时的完整内容。
+    ///
+    /// 除了给人看的文案，还带上**具体时间点**——
+    /// 实时活动（灵动岛）要靠这些时间点让系统自己跑倒计时和进度条。
     struct RingContent: Equatable {
         /// 圈内大字。
         var subject: String
@@ -353,6 +356,14 @@ enum ClassSchedule {
         var progress: Double
         /// 下方三行。
         var countdown: CountdownLines
+
+        /// 本节起止（只有上课中才有）。
+        var currentStart: Date?
+        var currentEnd: Date?
+        /// 下节开始时间。
+        var nextStart: Date?
+        /// 状态标签，实时活动用来挑图标：before / in / rest / done / none。
+        var phase: String
     }
 
     /// 计算第一屏要显示的内容。
@@ -378,7 +389,8 @@ enum ClassSchedule {
             return RingContent(subject: fallback ?? "无课",
                                caption: fallback == nil ? weekday : "当日晚课",
                                progress: 0,
-                               countdown: CountdownLines())
+                               countdown: CountdownLines(),
+                               phase: fallback == nil ? "none" : "evening")
         }
 
         let state = state(at: now, classes: timeline)
@@ -386,13 +398,15 @@ enum ClassSchedule {
 
         switch state {
         case .noClass:
-            return RingContent(subject: "无课", caption: weekday, progress: 0, countdown: lines)
+            return RingContent(subject: "无课", caption: weekday, progress: 0,
+                               countdown: lines, phase: "none")
 
         case .beforeSchool(let next):
             lines.untilNextStart = next.start.timeIntervalSince(now)
             lines.nextSubject = next.subject
             return RingContent(subject: next.subject, caption: weekday,
-                               progress: 0, countdown: lines)
+                               progress: 0, countdown: lines,
+                               nextStart: next.start, phase: "before")
 
         case .inClass(let current, let next):
             lines.untilCurrentEnd = current.end.timeIntervalSince(now)
@@ -402,18 +416,22 @@ enum ClassSchedule {
             }
             // 上课中：环随这节课的完成进度填充
             return RingContent(subject: current.subject, caption: weekday,
-                               progress: state.ringProgress(at: now), countdown: lines)
+                               progress: state.ringProgress(at: now), countdown: lines,
+                               currentStart: current.start, currentEnd: current.end,
+                               nextStart: next?.start, phase: "in")
 
         case .resting(_, let next):
             // 课间：环闭合，圈内预告下一节
             lines.untilNextStart = next.start.timeIntervalSince(now)
             lines.nextSubject = next.subject
             return RingContent(subject: next.subject, caption: "课间",
-                               progress: 1, countdown: lines)
+                               progress: 1, countdown: lines,
+                               nextStart: next.start, phase: "rest")
 
         case .finished:
             // 全部上完：环闭合，不再显示具体科目
-            return RingContent(subject: "完课", caption: weekday, progress: 1, countdown: lines)
+            return RingContent(subject: "完课", caption: weekday, progress: 1,
+                               countdown: lines, phase: "done")
         }
     }
 

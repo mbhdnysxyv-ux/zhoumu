@@ -51,11 +51,24 @@ struct HomeView: View {
         .sheet(isPresented: $isShowingSettings) {
             SettingsView().environmentObject(settings)
         }
-        .onAppear(perform: presentSetupIfNeeded)
+        .onAppear {
+            presentSetupIfNeeded()
+            syncLiveActivity()
+        }
         .onReceive(ticker) { now = $0 }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active { now = Date() }
+            if newPhase == .active {
+                now = Date()
+                syncLiveActivity()
+            } else if newPhase == .background {
+                // 切后台前刷一次：把当前状态和今天剩下的通知都排好。
+                syncLiveActivity()
+            }
         }
+        .onChange(of: settings.regular) { _, _ in syncLiveActivity() }
+        .onChange(of: settings.evening) { _, _ in syncLiveActivity() }
+        .onChange(of: settings.startDate) { _, _ in syncLiveActivity() }
+        .onChange(of: settings.liveActivityEnabled) { _, _ in syncLiveActivity() }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             now = Date()
         }
@@ -190,6 +203,12 @@ struct HomeView: View {
             }
         }
         .accessibilityHidden(true)
+    }
+
+    /// 刷新灵动岛实时活动 + 重排今天的上课提醒。
+    private func syncLiveActivity() {
+        let snapshot = settings
+        Task { await LiveActivityManager.shared.sync(settings: snapshot) }
     }
 
     // MARK: - 启动引导
