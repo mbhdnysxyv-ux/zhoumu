@@ -1,5 +1,11 @@
-// 生成 App 图标（1024×1024 PNG，橙白配色）。
-// 用法：swift Tools/make_icon.swift <输出路径>
+// 生成 App 图标（1024×1024 PNG）。
+//
+// 用法：
+//   swift Tools/make_icon.swift <输出路径> [light|dark]
+//
+// v1.3 起配色跟着 App 走：
+//   light = 白蓝（#F6F9FF 底 + #2563EB 蓝）
+//   dark  = 黑蓝（#05080F 底 + #4C8DFF 蓝）
 import CoreGraphics
 import CoreText
 import Foundation
@@ -8,13 +14,35 @@ import ImageIO
 let side = 1024
 let center = CGPoint(x: side / 2, y: side / 2)
 
-func rgb(_ r: Double, _ g: Double, _ b: Double) -> CGColor {
-    CGColor(srgbRed: r, green: g, blue: b, alpha: 1)
+func rgb(_ hex: UInt32) -> CGColor {
+    CGColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255.0,
+            green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(hex & 0xFF) / 255.0,
+            alpha: 1)
 }
 
 let outputPath = CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
     : "AppIcon-1024.png"
+let isDark = CommandLine.arguments.count > 2 && CommandLine.arguments[2] == "dark"
+
+// 和 Shared/Theme.swift 里的 Palette 保持一致
+let backgroundHex: UInt32 = isDark ? 0x05080F : 0xF6F9FF
+let trackHex:      UInt32 = isDark ? 0x17253D : 0xDBEAFE
+let accentHex:     UInt32 = isDark ? 0x4C8DFF : 0x2563EB
+
+/// 深色图标再加一层很淡的中心光晕，避免整体发闷。
+func drawCenterGlow(_ context: CGContext) {
+    guard isDark,
+          let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                    colors: [rgb(0x4C8DFF).copy(alpha: 0.22)!,
+                                             rgb(0x4C8DFF).copy(alpha: 0.0)!] as CFArray,
+                                    locations: [0, 1]) else { return }
+    context.drawRadialGradient(gradient,
+                               startCenter: center, startRadius: 0,
+                               endCenter: center, endRadius: CGFloat(side) * 0.62,
+                               options: [])
+}
 
 guard let context = CGContext(data: nil,
                               width: side,
@@ -26,23 +54,25 @@ guard let context = CGContext(data: nil,
     fatalError("无法创建绘图上下文")
 }
 
-// 暖白底
-context.setFillColor(rgb(1.0, 0.976, 0.957))
+// 底
+context.setFillColor(rgb(backgroundHex))
 context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+drawCenterGlow(context)
 
 // 循环轨道
 let ringInset: CGFloat = 148
-context.setStrokeColor(rgb(1.0, 0.898, 0.804))
-context.setLineWidth(66)
+let ringWidth: CGFloat = isDark ? 62 : 66
+context.setStrokeColor(rgb(trackHex))
+context.setLineWidth(ringWidth)
 context.strokeEllipse(in: CGRect(x: ringInset,
                                  y: ringInset,
                                  width: CGFloat(side) - ringInset * 2,
                                  height: CGFloat(side) - ringInset * 2))
 
-// 循环进度：走满 5/7
+// 循环进度：走满 5/7（和首页第一周周五的观感一致）
 let radius = (CGFloat(side) - ringInset * 2) / 2
-context.setStrokeColor(rgb(0.980, 0.451, 0.090))
-context.setLineWidth(66)
+context.setStrokeColor(rgb(accentHex))
+context.setLineWidth(ringWidth)
 context.setLineCap(.round)
 context.addArc(center: center,
                radius: radius,
@@ -55,7 +85,7 @@ context.strokePath()
 let font = CTFontCreateWithName("PingFangSC-Semibold" as CFString, 330, nil)
 let attributes: [CFString: Any] = [
     kCTFontAttributeName: font,
-    kCTForegroundColorAttributeName: rgb(0.980, 0.451, 0.090),
+    kCTForegroundColorAttributeName: rgb(accentHex),
 ]
 guard let attributed = CFAttributedStringCreate(nil, "周" as CFString, attributes as CFDictionary) else {
     fatalError("无法创建文本")
@@ -76,4 +106,4 @@ guard let destination = CGImageDestinationCreateWithURL(url as CFURL,
 }
 CGImageDestinationAddImage(destination, image, nil)
 guard CGImageDestinationFinalize(destination) else { fatalError("写入失败") }
-print("已生成图标：\(outputPath)")
+print("已生成图标（\(isDark ? "深色" : "浅色")）：\(outputPath)")

@@ -70,9 +70,9 @@ fi
 
 echo
 echo "==> 4/4 生成 App 图标"
-swift -module-cache-path "$CACHE" \
-  Tools/make_icon.swift \
-  ZhouMu/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+ICON=ZhouMu/Assets.xcassets/AppIcon.appiconset
+swift -module-cache-path "$CACHE" Tools/make_icon.swift "$ICON/AppIcon-1024.png" light
+swift -module-cache-path "$CACHE" Tools/make_icon.swift "$ICON/AppIcon-1024-dark.png" dark
 
 echo
 echo "==> 全部通过"
