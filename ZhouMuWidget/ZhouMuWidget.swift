@@ -399,9 +399,10 @@ private struct LockScreenClassView: View {
 
                 Spacer(minLength: 6)
 
-                ClassCountdown(state: context.state, size: 16)
+                ClassCountdown(state: context.state, size: 16, showsTargetTime: true)
                     .monospacedDigit()
                     .foregroundStyle(Palette.accentDeep)
+                    .padding(.bottom, 14)
             }
 
             ClassProgress(state: context.state)
@@ -463,6 +464,9 @@ private struct ClassCountdown: View {
     let size: CGFloat
     /// 紧凑态传 false：只留数字，省宽度。
     var showsLabel: Bool = true
+    /// 锁屏卡片传 true：在倒计时下面补一行目标时刻，
+    /// 这样即使内容过期（停在 0:00），读到的也是「数学 21:10」而不是一个孤零零的 0:00。
+    var showsTargetTime: Bool = false
 
     private enum Mode { case untilEnd(Date), untilStart(Date), none }
 
@@ -502,6 +506,27 @@ private struct ClassCountdown: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
+        .overlay(alignment: .bottomTrailing) {
+            if showsTargetTime, let target = targetTime {
+                Text("→ \(timeText(target))")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.secondaryText)
+                    .monospacedDigit()
+                    .offset(y: 15)
+            }
+        }
+    }
+
+    /// 倒计时指向的时刻：上课中 = 本节下课，否则 = 下节上课。
+    private var targetTime: Date? {
+        if case .untilEnd(let end) = mode { return end }
+        if case .untilStart(let start) = mode { return start }
+        return nil
+    }
+
+    private func timeText(_ date: Date) -> String {
+        let c = SemesterCalculator.calendar.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", c.hour ?? 0, c.minute ?? 0)
     }
 }
 
