@@ -82,10 +82,14 @@ enum Palette {
     /// 造一个跟随系统外观切换的动态色。
     ///
     /// - iOS（App 与小组件）：用 `UIColor` 的动态构造，跟随系统的深浅色。
+    /// - watchOS：`UIColor(dynamicProvider:)` 在这个平台**不可用**，
+    ///   而手表界面本来就是深色为主，所以直接取深色那一支。
     /// - macOS（离屏渲染工具）：用 `NSColor` 的动态构造，
     ///   这样 `ImageRenderer` + `.preferredColorScheme(.dark)` 也能渲染出深色版，方便校验配色。
     static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        #if canImport(UIKit)
+        #if os(watchOS)
+        return Color(hex: dark)
+        #elseif canImport(UIKit)
         return Color(UIColor { traits in
             traits.userInterfaceStyle == .dark
                 ? UIColor(hex: dark)

@@ -16,6 +16,15 @@
   没填时间的节次无法使用提醒，此时首页圈内会回退显示当天晚课表的科目。
 - 从 1.2 升级时**自动迁移**：原来的课表搬进晚课表（每天 1 节、按周目轮换、无时间），设置不丢。
 
+### Apple Watch
+
+- 新增手表应用，**随 iPhone 应用一起安装**（`ZhouMu.app/Watch/ZhouMuWatch.app`）。
+- 手表界面：第 N 周大字 + 本周进度条 + 今天的课；自己一套设置。
+- 表盘复杂功能四种样式：圆形 / 矩形 / 行内 / 角标。
+- 手表应用和 iPhone 应用共用一个 App Group；`Shared/Theme.swift` 补了 watchOS 分支
+  （`UIColor(dynamicProvider:)` 在手表上不可用）。
+- 手表代码在 [zhoumu-watch](https://github.com/mbhdnysxyv-ux/zhoumu-watch) 另有一份副本。
+
 ### 已知限制
 
 - **灵动岛不会在精确时刻自动消失。** iOS 要求活动保持 `active` 才能留在灵动岛，

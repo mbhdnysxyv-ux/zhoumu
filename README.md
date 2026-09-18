@@ -51,6 +51,13 @@
 - 倒计时和进度条由系统渲染，**App 没在运行也不会停**。
 - 没填时间的节次不参与提醒，此时首页圈内会**回退显示当天晚课表的科目**（小字标「当日晚课」）。
 
+### Apple Watch
+
+- 手表应用**随 iPhone 应用一起安装**，不用单独装。
+- **第 N 周**大字显示 + 本周进度条，下面列出今天的课。
+- **表盘复杂功能**四种样式：圆形（进度环 + 周目）、矩形、行内、角标。
+- 手表上有自己的设置：开学日期、循环周数、今天各节科目。
+
 ### 其他
 
 - **浅色 / 深色 / 跟随系统** 三态外观切换，App 图标也有深浅两个版本。
@@ -109,6 +116,10 @@
 用 Sideloadly / AltStore / ESign 等工具自签安装。
 
 > ⚠️ **两个必读的坑**
+>
+> 0. **手表应用在这个 IPA 里**：`Watch/ZhouMuWatch.app`（含表盘复杂功能）。
+>    它随 iPhone 应用一起安装，不用单独下。不过自签工具**未必会重签手表那部分**，
+>    见下面第 1 条同样的注意事项。
 >
 > 1. **小组件需要重新签名**。这个 IPA 里含小组件扩展 `PlugIns/ZhouMuWidget.appex`，
 >    自签工具必须把它一起重签，否则小组件用不了。装完长按桌面 ▸「+」搜「周目」能搜到就说明签上了。
@@ -203,11 +214,19 @@ ZhouMu/                      主 App
   PrivacyInfo.xcprivacy        隐私清单（上架 / TestFlight 需要）
 ZhouMuWidget/                桌面小组件 + 灵动岛
   ZhouMuWidget.swift           时间线、小组件界面、ActivityConfiguration、回退配置
+ZhouMuWatch/                 Apple Watch 应用（随 iPhone 应用一起装）
+  ZhouMuWatchApp.swift         入口
+  Models/WatchSettings.swift   手表端设置
+  Views/WeekView.swift         第 N 周 + 今天的课
+  Views/WatchSettingsView.swift 手表端设置页
+ZhouMuWatchWidget/           表盘复杂功能
+  ZhouMuWatchWidget.swift      circular / rectangular / inline / corner
 Shared/                      App 与小组件共用
   SemesterCalculator.swift     周目计算（纯逻辑，可单独测试）
   ScheduleModel.swift          两张课表的数据模型 + 时间轴合并 + 状态机
   ClassActivity.swift          实时活动的数据契约（ActivityAttributes）
   Theme.swift                  配色（浅色白蓝 / 深色黑蓝，动态色）
+  WatchStorage.swift           手表端与复杂功能共享的存储
   SharedStorage.swift          App Group 共享存储
 ZhouMu.entitlements          App Group 声明（App 侧）
 ZhouMuWidget.entitlements    App Group 声明（小组件侧）

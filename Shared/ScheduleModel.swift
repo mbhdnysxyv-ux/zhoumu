@@ -435,17 +435,27 @@ enum ClassSchedule {
         }
     }
 
-    /// 当天晚课表里第一个非空科目；没启用或没课返回 nil。
-    static func eveningSubject(day: Int,
-                               tables: [ScheduleKind: ScheduleTable],
-                               displayWeek: Int?) -> String? {
-        guard let table = tables[.evening], table.enabled else { return nil }
+    /// 某张表某一天的第一个非空科目；没启用或没课返回 nil。
+    ///
+    /// 单表场景（比如手表版只有一张课表）靠它做「没填时间时显示什么」的回退。
+    static func firstSubject(day: Int,
+                             table: ScheduleTable,
+                             displayWeek: Int?) -> String? {
+        guard table.enabled else { return nil }
         let row = table.rotatesByWeek ? max(0, (displayWeek ?? 1) - 1) : 0
         for period in 0..<table.periodCount(day: day) {
             let subject = table.subject(row: row, day: day, period: period)
             if !subject.isEmpty { return subject }
         }
         return nil
+    }
+
+    /// 当天晚课表里第一个非空科目；没启用或没课返回 nil。
+    static func eveningSubject(day: Int,
+                               tables: [ScheduleKind: ScheduleTable],
+                               displayWeek: Int?) -> String? {
+        guard let table = tables[.evening] else { return nil }
+        return firstSubject(day: day, table: table, displayWeek: displayWeek)
     }
 }
 
