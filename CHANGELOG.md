@@ -18,7 +18,7 @@
 - 手表应用嵌在 `ZhouMu.app/Watch/ZhouMuWatch.app`，Bundle ID 是 `<主 App>.watchkitapp`。
 - 手表和 iPhone 应用共用一个 App Group；`Shared/Theme.swift` 补了 watchOS 分支
   （`UIColor(dynamicProvider:)` 在手表上明确不可用，直接取深色那支）。
-- 手表部分在 [zhoumu-watch](https://github.com/mbhdnysxyv-ux/zhoumu-watch) 另有一份代码副本（不发布 Release）。
+- 手表部分在 [zhoumu-watch](https://github.com/zhoumu-app/zhoumu-watch) 另有一份代码副本（不发布 Release）。
 
 ### 已知限制
 
