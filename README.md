@@ -7,7 +7,7 @@
 浅色白蓝、深色黑蓝，**不联网、不要账号、不收集任何数据**。
 
 > 📦 这是 [**周目**](https://github.com/zhoumu-app) 组织的主仓库。
-> 🤖 想要 Android 版？在 [zhoumu-android](https://github.com/zhoumu-app/zhoumu-android)。
+> 🤖 想要 Android 版？到 [zhoumu-android](https://github.com/zhoumu-app/zhoumu-android/releases/latest) 下 APK（已签好名，直接装）。
 
 | 第一页 | 第二页 | 设置 |
 | :---: | :---: | :---: |
