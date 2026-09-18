@@ -6,6 +6,8 @@
 
 浅色白蓝、深色黑蓝，**不联网、不要账号、不收集任何数据**。
 
+> 📦 这是 [**周目**](https://github.com/zhoumu-app) 组织的主仓库。
+
 | 第一页 | 第二页 | 设置 |
 | :---: | :---: | :---: |
 | ![第一页](Screenshots/01-home.png) | ![当日课表](Screenshots/03-today.png) | ![设置](Screenshots/04-settings.png) |
@@ -22,7 +24,7 @@
 | :---: |
 | ![Apple Watch](Screenshots/10-watch.png) |
 
-> 以上都是**模拟器实拍**（iPhone 17 Pro / Apple Watch Series 11，iOS 26.5 / watchOS 26.5），不是设计稿。
+> 以上都是**模拟器实拍**（iPhone 17 Pro / Apple Watch Series 11，iOS 26.5 / watchOS 26.5）。
 
 ---
 
@@ -321,3 +323,11 @@ A：App 里改设置会立刻通知小组件刷新；如果 App 已被系统杀�
 ## 许可证
 
 [MIT](LICENSE)
+
+---
+
+<p align="center">
+  <a href="https://github.com/zhoumu-app">周目</a> ·
+  <a href="https://github.com/zhoumu-app/zhoumu-watch">手表代码副本</a> ·
+  <a href="https://github.com/zhoumu-app/zhoumu/releases/latest">下载最新版</a>
+</p>
