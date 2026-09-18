@@ -303,8 +303,9 @@ struct ZhouMuWidgetBundle: WidgetBundle {
 
 /// 每节课的实时活动。
 ///
+/// 设计原则：**灵动岛尽量少占地方**。
 /// 倒计时和进度条都用 `Text(timerInterval:)` / `ProgressView(timerInterval:)`，
-/// **由系统自己渲染**，所以即使 App 没在运行也不会停。
+/// 由系统自己渲染，App 不运行也不会停。
 struct ClassActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClassActivityAttributes.self) { context in
@@ -313,11 +314,16 @@ struct ClassActivityWidget: Widget {
                 .activitySystemActionForegroundColor(Palette.accent)
         } dynamicIsland: { context in
             DynamicIsland {
+                // 展开态：只留三块，去掉中间那行，整体矮一截
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.subject, systemImage: symbol(for: context.state.phase))
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(Palette.accent)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Image(systemName: symbol(for: context.state.phase))
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(context.state.subject)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Palette.accent)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
@@ -325,38 +331,27 @@ struct ClassActivityWidget: Widget {
                         .foregroundStyle(Palette.accentDeep)
                 }
 
-                DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.caption)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(Palette.secondaryText)
-                }
-
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 6) {
-                        ClassProgress(state: context.state)
-
-                        if let next = context.state.nextStart, next > Date() {
-                            HStack {
-                                Text("下节")
-                                    .foregroundStyle(Palette.secondaryText)
-                                Spacer()
-                                Text(timerInterval: Date()...next, countsDown: true)
-                                    .monospacedDigit()
-                                    .foregroundStyle(Palette.accentDeep)
-                            }
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                        }
-                    }
+                    ClassProgress(state: context.state)
+                        .padding(.top, 2)
                 }
             } compactLeading: {
+                // 实测：左侧放不放图标，胶囊宽度只差 1%（宽度主要由系统固定的
+                // 传感器区域决定），所以留着图标——它零成本地说明了当前处在哪个状态。
                 Image(systemName: symbol(for: context.state.phase))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Palette.accent)
             } compactTrailing: {
-                ClassCountdown(state: context.state, size: 13)
+                // 紧凑态只显示纯倒计时，不带「还剩」标签，并且**限宽**——
+                // 限宽交给系统去缩写（会自动变成「21分」这种），胶囊才不会被撑长。
+                ClassCountdown(state: context.state, size: 12, showsLabel: false)
                     .monospacedDigit()
                     .foregroundStyle(Palette.accentDeep)
+                    .frame(maxWidth: 38)
             } minimal: {
+                // 最小态：一个图标，不加任何文字
                 Image(systemName: symbol(for: context.state.phase))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Palette.accent)
             }
             .keylineTint(Palette.accent)
@@ -376,59 +371,84 @@ struct ClassActivityWidget: Widget {
 }
 
 /// 锁屏上的卡片。
+///
+/// 只显示「当前 + 接下来 2 节」，上过的课不再占位置；日期也缩到「9月18日」。
 private struct LockScreenClassView: View {
     let context: ActivityViewContext<ClassActivityAttributes>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            // 第一行：星期 + 短日期
             HStack {
                 Text(context.state.caption)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.secondaryText)
-
-                Spacer()
-
-                Text(context.attributes.dayTitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                Spacer(minLength: 6)
+                Text(shortDayTitle)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.secondaryText)
             }
 
-            HStack(alignment: .firstTextBaseline) {
+            // 第二行：科目 + 倒计时
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(context.state.subject)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(Palette.accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 6)
 
-                ClassCountdown(state: context.state, size: 17)
+                ClassCountdown(state: context.state, size: 16)
                     .monospacedDigit()
                     .foregroundStyle(Palette.accentDeep)
             }
 
             ClassProgress(state: context.state)
 
-            if !context.attributes.items.isEmpty {
-                Divider().overlay(Palette.line)
-
-                VStack(spacing: 4) {
-                    ForEach(context.attributes.items.prefix(5)) { item in
-                        HStack(spacing: 8) {
-                            Text(item.subject)
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(Palette.primaryText)
-                            Spacer(minLength: 6)
-                            Text("\(timeText(item.start)) – \(timeText(item.end))")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(Palette.secondaryText)
-                                .monospacedDigit()
-                        }
+            // 只列「还没上完的」课，最多 3 节
+            let upcoming = context.attributes.items.filter { $0.end > Date() }.prefix(3)
+            if !upcoming.isEmpty {
+                VStack(spacing: 3) {
+                    ForEach(Array(upcoming)) { item in
+                        scheduleRow(item)
                     }
                 }
+                .padding(.top, 1)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private func scheduleRow(_ item: ClassActivityAttributes.Item) -> some View {
+        let isCurrent = context.state.currentStart == item.start
+        return HStack(spacing: 6) {
+            Circle()
+                .fill(isCurrent ? Palette.accent : .clear)
+                .frame(width: 4, height: 4)
+
+            Text(item.subject)
+                .font(.system(size: 11, weight: isCurrent ? .bold : .medium, design: .rounded))
+                .foregroundStyle(isCurrent ? Palette.accentDeep : Palette.primaryText)
+                .lineLimit(1)
+
+            Spacer(minLength: 6)
+
+            Text("\(timeText(item.start))–\(timeText(item.end))")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(Palette.secondaryText)
+                .monospacedDigit()
+        }
+    }
+
+    /// 「2026年9月18日」→「9月18日」
+    private var shortDayTitle: String {
+        let t = context.attributes.dayTitle
+        if let range = t.range(of: "年") {
+            return String(t[range.upperBound...])
+        }
+        return t
     }
 
     private func timeText(_ date: Date) -> String {
@@ -437,27 +457,55 @@ private struct LockScreenClassView: View {
     }
 }
 
-/// 倒计时文案：上课中显示「还剩」，否则显示「距上课」。
+/// 倒计时：上课中显示「还剩 h:mm」，还没上课显示「距上课 h:mm」。
 private struct ClassCountdown: View {
     let state: ClassActivityAttributes.ContentState
     let size: CGFloat
+    /// 紧凑态传 false：只留数字，省宽度。
+    var showsLabel: Bool = true
+
+    private enum Mode { case untilEnd(Date), untilStart(Date), none }
+
+    private var mode: Mode {
+        if let end = state.currentEnd, end > Date() { return .untilEnd(end) }
+        if let start = state.nextStart, start > Date() { return .untilStart(start) }
+        return .none
+    }
 
     var body: some View {
         Group {
-            if let end = state.currentEnd, end > Date() {
-                Text(timerInterval: Date()...end, countsDown: true)
-            } else if let start = state.nextStart, start > Date() {
-                Text(timerInterval: Date()...start, countsDown: true)
-            } else {
+            switch mode {
+            case .untilEnd(let end):
+                HStack(spacing: 3) {
+                    if showsLabel {
+                        Text("还剩")
+                            .font(.system(size: size * 0.62, weight: .medium, design: .rounded))
+                            .foregroundStyle(Palette.secondaryText)
+                    }
+                    Text(timerInterval: Date()...end, countsDown: true)
+                        .font(.system(size: size, weight: .bold, design: .rounded))
+                }
+            case .untilStart(let start):
+                HStack(spacing: 3) {
+                    if showsLabel {
+                        Text("距上课")
+                            .font(.system(size: size * 0.62, weight: .medium, design: .rounded))
+                            .foregroundStyle(Palette.secondaryText)
+                    }
+                    Text(timerInterval: Date()...start, countsDown: true)
+                        .font(.system(size: size, weight: .bold, design: .rounded))
+                }
+            case .none:
                 Text("—")
+                    .font(.system(size: size, weight: .bold, design: .rounded))
             }
         }
-        .font(.system(size: size, weight: .bold, design: .rounded))
-        .multilineTextAlignment(.trailing)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
     }
 }
 
-/// 进度条：上课中随这节课的进度走，由系统自绘。
+/// 进度条：上课中随这节课的进度走，课间/完课则是满的，都由系统自绘。
 private struct ClassProgress: View {
     let state: ClassActivityAttributes.ContentState
 
@@ -467,11 +515,9 @@ private struct ClassProgress: View {
                 ProgressView(timerInterval: start...end, countsDown: false)
                     .tint(Palette.accent)
             } else if state.phase == "rest" || state.phase == "done" {
-                ProgressView(value: 1.0)
-                    .tint(Palette.accent)
+                ProgressView(value: 1.0).tint(Palette.accent)
             } else {
-                ProgressView(value: 0.0)
-                    .tint(Palette.accent)
+                ProgressView(value: 0.0).tint(Palette.accent)
             }
         }
         .labelsHidden()
