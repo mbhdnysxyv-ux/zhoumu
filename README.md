@@ -6,13 +6,19 @@
 
 浅色白蓝、深色黑蓝，**不联网、不要账号、不收集任何数据**。
 
-| 第一页 | 第二页 | 深色模式 |
+| 第一页 | 第二页 | 设置 |
 | :---: | :---: | :---: |
 | ![第一页](Screenshots/01-home.png) | ![当日课表](Screenshots/03-today.png) | ![设置](Screenshots/04-settings.png) |
 
 | 课表编辑器 | 桌面小组件 |
 | :---: | :---: |
 | ![课表编辑器](Screenshots/05-editor.png) | ![小组件](Screenshots/06-widget-medium.png) |
+
+| 灵动岛 | 锁屏实时活动 |
+| :---: | :---: |
+| ![灵动岛](Screenshots/08-island.jpg) | ![锁屏](Screenshots/09-lockscreen.jpg) |
+
+> 以上都是**模拟器实拍**（iPhone 17 Pro / iOS 26.5），不是设计稿。
 
 ---
 
