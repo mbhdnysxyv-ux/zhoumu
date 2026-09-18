@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 看 README
+    url: https://github.com/zhoumu-app/zhoumu#readme
+    about: 安装方法、常见问题、计算规则都写在这里
+  - name: ⬇️ 下载安装
+    url: https://github.com/zhoumu-app/zhoumu/releases/latest
+    about: 最新版的无签名 IPA

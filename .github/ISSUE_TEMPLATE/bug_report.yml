@@ -1,0 +1,67 @@
+name: 🐛 报 Bug
+description: 有东西不正常工作
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先确认一下：**请把 App 版本号和系统版本填上**，很多问题一看版本就能定位。
+  - type: input
+    id: version
+    attributes:
+      label: 周目版本
+      description: 设置页底部能看到，或者看下载的 IPA 文件名
+      placeholder: "1.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 哪个平台
+      multiple: true
+      options:
+        - iPhone 应用
+        - 桌面小组件
+        - 灵动岛 / 锁屏实时活动
+        - Apple Watch 应用
+        - 表盘复杂功能
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 系统版本
+      placeholder: "iOS 26.5 / watchOS 26.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 怎么装的
+      options:
+        - Xcode 自己编译
+        - AltStore / SideStore
+        - Sideloadly / ESign 等其他自签工具
+        - TestFlight / App Store
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 说清楚「你做了什么 → 期望什么 → 实际什么」
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开设置 ▸ 课表
+        2. 点正课表的第 3 节
+        3. ...
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充
+      description: 截图、录屏都很有用
