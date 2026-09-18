@@ -57,6 +57,18 @@ else
 fi
 
 echo
+echo "==> 3.6/4 检查实时活动是否注册进 WidgetBundle"
+# 踩过的坑：ActivityConfiguration 写好了但忘了加进 WidgetBundle，
+# 结果活动能创建、SpringBoard 也收得到，但灵动岛和锁屏都不显示。
+if grep -q "ClassActivityWidget()" ZhouMuWidget/ZhouMuWidget.swift \
+   && grep -q "ActivityConfiguration(for: ClassActivityAttributes.self)" ZhouMuWidget/ZhouMuWidget.swift; then
+  echo "实时活动已注册进 WidgetBundle。"
+else
+  echo "⚠️  ClassActivityWidget 没有加进 WidgetBundle，灵动岛不会显示。"
+  exit 1
+fi
+
+echo
 echo "==> 4/4 生成 App 图标"
 swift -module-cache-path "$CACHE" \
   Tools/make_icon.swift \

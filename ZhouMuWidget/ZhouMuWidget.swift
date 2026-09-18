@@ -292,6 +292,9 @@ struct WeekWidget: Widget {
 struct ZhouMuWidgetBundle: WidgetBundle {
     var body: some Widget {
         WeekWidget()
+        // 实时活动必须注册进 WidgetBundle，否则系统扫不到它：
+        // 活动能创建成功、SpringBoard 也收得到，但灵动岛和锁屏都不会显示。
+        ClassActivityWidget()
     }
 }
 
@@ -302,7 +305,6 @@ struct ZhouMuWidgetBundle: WidgetBundle {
 ///
 /// 倒计时和进度条都用 `Text(timerInterval:)` / `ProgressView(timerInterval:)`，
 /// **由系统自己渲染**，所以即使 App 没在运行也不会停。
-@available(iOS 16.1, *)
 struct ClassActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClassActivityAttributes.self) { context in
@@ -374,7 +376,6 @@ struct ClassActivityWidget: Widget {
 }
 
 /// 锁屏上的卡片。
-@available(iOS 16.1, *)
 private struct LockScreenClassView: View {
     let context: ActivityViewContext<ClassActivityAttributes>
 
@@ -437,7 +438,6 @@ private struct LockScreenClassView: View {
 }
 
 /// 倒计时文案：上课中显示「还剩」，否则显示「距上课」。
-@available(iOS 16.1, *)
 private struct ClassCountdown: View {
     let state: ClassActivityAttributes.ContentState
     let size: CGFloat
@@ -458,7 +458,6 @@ private struct ClassCountdown: View {
 }
 
 /// 进度条：上课中随这节课的进度走，由系统自绘。
-@available(iOS 16.1, *)
 private struct ClassProgress: View {
     let state: ClassActivityAttributes.ContentState
 
