@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  只放「数组类型」的键。
+
+	  Xcode 的 INFOPLIST_KEY_xxx 构建设置只支持标量，不支持数组，
+	  所以 UIBackgroundModes / BGTaskSchedulerPermittedIdentifiers
+	  这两项必须写在实际的 Info.plist 里。
+
+	  GENERATE_INFOPLIST_FILE = YES 和 INFOPLIST_FILE 同时存在时，
+	  Xcode 会以这个文件为底、再把生成的键合并进来（小组件 target 用的就是这个组合）。
+	-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>$(APP_BUNDLE_ID).refresh</string>
+	</array>
+</dict>
+</plist>

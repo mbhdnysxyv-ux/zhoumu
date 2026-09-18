@@ -208,6 +208,8 @@ struct HomeView: View {
     /// 刷新灵动岛实时活动 + 重排今天的上课提醒。
     private func syncLiveActivity(goingToBackground: Bool = false) {
         let snapshot = settings
+        // 顺手给系统排一个后台刷新：课后找机会醒一次，把过期的实时活动清理掉。
+        BackgroundRefresh.schedule(settings: snapshot)
         Task {
             await LiveActivityManager.shared.sync(settings: snapshot,
                                                   goingToBackground: goingToBackground)

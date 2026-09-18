@@ -362,6 +362,7 @@
 				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ZhouMu/ZhouMu-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = ZhouMu;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
@@ -395,6 +396,7 @@
 				DEVELOPMENT_TEAM = M39NNXS7CK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ZhouMu/ZhouMu-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = ZhouMu;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
