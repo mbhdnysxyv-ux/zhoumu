@@ -18,7 +18,11 @@
 | :---: | :---: |
 | ![灵动岛](Screenshots/08-island.jpg) | ![锁屏](Screenshots/09-lockscreen.jpg) |
 
-> 以上都是**模拟器实拍**（iPhone 17 Pro / iOS 26.5），不是设计稿。
+| Apple Watch |
+| :---: |
+| ![Apple Watch](Screenshots/10-watch.png) |
+
+> 以上都是**模拟器实拍**（iPhone 17 Pro / Apple Watch Series 11，iOS 26.5 / watchOS 26.5），不是设计稿。
 
 ---
 
@@ -52,6 +56,8 @@
 - 没填时间的节次不参与提醒，此时首页圈内会**回退显示当天晚课表的科目**（小字标「当日晚课」）。
 
 ### Apple Watch
+
+![Apple Watch 主界面](Screenshots/10-watch.png)
 
 - 手表应用**随 iPhone 应用一起安装**，不用单独装。
 - **第 N 周**大字显示 + 本周进度条，下面列出今天的课。
