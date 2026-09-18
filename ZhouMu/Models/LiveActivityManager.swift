@@ -27,7 +27,10 @@ final class LiveActivityManager {
     // MARK: - 同步
 
     /// 让实时活动与通知跟上当前设置。在 App 出现、切后台、课程边界时调用。
-    func sync(settings: AppSettings, now: Date = Date()) async {
+    ///
+    /// - Parameter goingToBackground: 切后台时传 true（保留参数是为了让调用方语义清楚，
+    ///   当前实现下前后台行为一致）。
+    func sync(settings: AppSettings, now: Date = Date(), goingToBackground: Bool = false) async {
         guard settings.liveActivityEnabled else {
             await endActivity()
             cancelNotifications()
@@ -41,7 +44,15 @@ final class LiveActivityManager {
             return
         }
 
-        await updateActivity(settings: settings, classes: classes, now: now)
+        // 当天全上完了 → 直接移除活动，别让「完课」的卡片挂一整天。
+        if case .finished = ClassSchedule.state(at: now, classes: classes) {
+            await endActivity()
+            cancelNotifications()
+            return
+        }
+
+        await updateActivity(settings: settings, classes: classes, now: now,
+                             scheduleDismissal: goingToBackground)
         scheduleNotifications(classes: classes, now: now)
     }
 
@@ -49,7 +60,8 @@ final class LiveActivityManager {
 
     private func updateActivity(settings: AppSettings,
                                 classes: [ScheduledClass],
-                                now: Date) async {
+                                now: Date,
+                                scheduleDismissal: Bool) async {
         let content = ClassSchedule.ringContent(
             at: now,
             tables: [.regular: settings.regular, .evening: settings.evening],
@@ -75,14 +87,30 @@ final class LiveActivityManager {
         }
         let attributes = ClassActivityAttributes(dayTitle: now.zhoumu_shortText, items: items)
 
-        // 已经有一个就更新，没有就新建
-        if let existing = Activity<ClassActivityAttributes>.activities.first {
-            await existing.update(ActivityContent(state: state, staleDate: nil))
-        } else {
+        // 内容过期的提示时间：本节下课那一刻。
+        // 过了这个点系统会把活动标记成「过时」（变暗），是给用户的额外提示。
+        let stale = classes.first { $0.start <= now && now < $0.end }?.end
+            ?? classes.first { now < $0.start }?.end
+
+        let activityContent = ActivityContent(state: state, staleDate: stale)
+
+        guard let current = Activity<ClassActivityAttributes>.activities.first else {
             _ = try? Activity.request(attributes: attributes,
-                                      content: ActivityContent(state: state, staleDate: nil),
-                                      pushType: nil)
+                                      content: activityContent, pushType: nil)
+            return
         }
+
+        // 注意：这里【不能】用 `end(…, dismissalPolicy: .after(下课时间))` 来安排自动消失。
+        //
+        // 实测（iPhone 17 Pro 模拟器 / iOS 26.5）：`end()` 会让活动
+        // **立刻从灵动岛消失**，只有锁屏会把它保留到 dismissal 时间。
+        // 结果是整节课灵动岛都空着——比"停在 0:00"还糟。
+        //
+        // 苹果的设计是：活动必须保持 active 才能留在灵动岛；
+        // 想在精确时刻远程结束，唯一的官方途径是 APNs 的 push-to-end（需要服务器）。
+        // 所以这里保持 active，靠 staleDate 让系统标记"内容已过时"，
+        // 等 App 下次运行再把状态追平或结束。
+        await current.update(activityContent)
     }
 
     /// 结束所有实时活动（关闭开关、今天没课时调用）。

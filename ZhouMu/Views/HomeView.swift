@@ -61,8 +61,8 @@ struct HomeView: View {
                 now = Date()
                 syncLiveActivity()
             } else if newPhase == .background {
-                // 切后台前刷一次：把当前状态和今天剩下的通知都排好。
-                syncLiveActivity()
+                // 切后台前刷一次：把通知排好，并给实时活动安排「到点自动移除」。
+                syncLiveActivity(goingToBackground: true)
             }
         }
         .onChange(of: settings.regular) { _, _ in syncLiveActivity() }
@@ -206,9 +206,12 @@ struct HomeView: View {
     }
 
     /// 刷新灵动岛实时活动 + 重排今天的上课提醒。
-    private func syncLiveActivity() {
+    private func syncLiveActivity(goingToBackground: Bool = false) {
         let snapshot = settings
-        Task { await LiveActivityManager.shared.sync(settings: snapshot) }
+        Task {
+            await LiveActivityManager.shared.sync(settings: snapshot,
+                                                  goingToBackground: goingToBackground)
+        }
     }
 
     // MARK: - 启动引导
