@@ -16,6 +16,8 @@ swiftc -module-cache-path "$CACHE" -O \
   Tools/CalculatorCheck/main.swift \
   Shared/SemesterCalculator.swift \
   Shared/SharedStorage.swift \
+  Shared/Theme.swift \
+  Shared/ScheduleModel.swift \
   ZhouMu/Models/AppSettings.swift \
   -o build/zhoumu-check
 ./build/zhoumu-check
@@ -26,8 +28,9 @@ echo "==> 2/4 App target 编译检查 (SDK: ${SDK})"
 SRC="$PWD/build/Typecheck"
 rm -rf "$SRC"
 mkdir -p "$SRC/App/Views" "$SRC/App/Models" "$SRC/Shared" "$SRC/Widget"
-sed '/^#Preview/,$d' ZhouMu/Views/HomeView.swift > "$SRC/App/Views/HomeView.swift"
-sed '/^#Preview/,$d' ZhouMu/Views/SettingsView.swift > "$SRC/App/Views/SettingsView.swift"
+for f in ZhouMu/Views/*.swift; do
+  sed '/^#Preview/,$d' "$f" > "$SRC/App/Views/$(basename "$f")"
+done
 cp ZhouMu/Models/AppSettings.swift "$SRC/App/Models/"
 cp ZhouMu/ZhouMuApp.swift "$SRC/App/"
 cp Shared/*.swift "$SRC/Shared/"

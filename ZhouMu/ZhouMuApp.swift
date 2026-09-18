@@ -8,8 +8,8 @@ struct ZhouMuApp: App {
         WindowGroup {
             HomeView()
                 .environmentObject(settings)
-                // 界面固定为「橙白」浅色，避免深色模式下配色翻转。
-                .preferredColorScheme(.light)
+                // 外观由设置里的三态开关决定；`.system` 时交回系统。
+                .preferredColorScheme(settings.themeMode.colorScheme)
         }
     }
 }

@@ -1,37 +1,38 @@
 import SwiftUI
 
-/// 设置页：开学日期设置 + 周目循环设置 + 课表。
-/// 用自定义卡片而不是系统 Form，保证和主界面一样的「橙白极简」观感。
+/// 设置页 v1.3：外观 + 学期 + 两张课表 + 灵动岛。
+/// 用自定义卡片而不是系统 Form，保证和主界面一致的观感。
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
-    @State private var editingCell: ScheduleCellID?
-
     var body: some View {
-        ZStack {
-            Palette.background.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Palette.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                header
+                VStack(spacing: 0) {
+                    header
 
-                ScrollView {
-                    VStack(spacing: 16) {
-                        startDateCard
-                        cycleCard
-                        scheduleCard
-                        previewCard
-                        resetButton
-                        copyright
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            appearanceCard
+                            semesterCard
+                            scheduleLinksCard
+                            liveActivityCard
+                            previewCard
+                            resetButton
+                            footnote
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 28)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 28)
                 }
             }
-        }
-        .sheet(item: $editingCell) { cell in
-            SubjectEditorView(row: cell.row, day: cell.day)
-                .environmentObject(settings)
+            .navigationDestination(for: ScheduleKind.self) { kind in
+                ScheduleEditorView(kind: kind).environmentObject(settings)
+            }
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -45,15 +46,13 @@ struct SettingsView: View {
 
             Spacer()
 
-            Button {
-                dismiss()
-            } label: {
+            Button { dismiss() } label: {
                 Text("完成")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 9)
-                    .background(Capsule().fill(Palette.orange))
+                    .background(Capsule().fill(Palette.accent))
             }
             .accessibilityLabel("完成设置")
         }
@@ -62,9 +61,23 @@ struct SettingsView: View {
         .padding(.bottom, 14)
     }
 
-    // MARK: - 开学日期
+    // MARK: - 外观
 
-    private var startDateCard: some View {
+    private var appearanceCard: some View {
+        SettingsCard(title: "外观",
+                     caption: "浅色是白蓝配色，深色是黑蓝配色。") {
+            Picker("外观", selection: $settings.themeMode) {
+                ForEach(ThemeMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    // MARK: - 学期
+
+    private var semesterCard: some View {
         SettingsCard(title: "开学日期",
                      caption: "以这一天为第 1 周的第 1 天，每 7 天进入下一周。") {
             // 用内嵌日历而不是 compact 弹出式选择器：弹出式在启动瞬间会被自动展开并回写当月 1 号。
@@ -74,7 +87,7 @@ struct SettingsView: View {
                 .datePickerStyle(.graphical)
                 .labelsHidden()
                 .environment(\.locale, Locale(identifier: "zh_CN"))
-                .tint(Palette.orange)
+                .tint(Palette.accent)
 
             HStack {
                 Button {
@@ -82,10 +95,10 @@ struct SettingsView: View {
                 } label: {
                     Text("设为今天")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Palette.orange)
+                        .foregroundStyle(Palette.accent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Capsule().fill(Palette.orangeSoft.opacity(0.7)))
+                        .background(Capsule().fill(Palette.accentSoft.opacity(0.7)))
                 }
                 .buttonStyle(.plain)
 
@@ -93,44 +106,39 @@ struct SettingsView: View {
 
                 Text(settings.startDate.zhoumu_shortText)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(Palette.orangeDeep)
+                    .foregroundStyle(Palette.accentDeep)
             }
-        }
-    }
 
-    // MARK: - 周目循环
+            Divider().overlay(Palette.line)
 
-    private var cycleCard: some View {
-        SettingsCard(title: "周目循环", caption: cycleCaption) {
             Toggle(isOn: $settings.cyclingEnabled) {
                 Text("启用周目循环")
                     .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.primaryText)
             }
-            .tint(Palette.orange)
+            .tint(Palette.accent)
 
             if settings.cyclingEnabled {
-                Divider().overlay(Palette.orangeSoft)
-
-                Stepper(value: $settings.cycleWeeks,
-                        in: SemesterCalculator.cycleWeeksRange) {
+                Stepper(value: $settings.cycleWeeks, in: SemesterCalculator.cycleWeeksRange) {
                     HStack {
                         Text("循环周数")
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundStyle(Palette.primaryText)
-
                         Spacer(minLength: 12)
-
                         Text("\(settings.cycleWeeks) 周")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(Palette.orange)
+                            .foregroundStyle(Palette.accent)
                     }
                 }
             }
+
+            Text(cycleCaption)
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(Palette.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// 用今天的真实数据解释循环规则。
     private var cycleCaption: String {
         switch todayPhase {
         case .inSession(let info) where info.isCycling:
@@ -142,77 +150,102 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 课表
+    // MARK: - 两张课表入口
 
-    /// 课表：每一排对应一个周目，一排里周一至周日各一格。
-    private var scheduleCard: some View {
-        SettingsCard(title: "课表", caption: scheduleCaption) {
-            VStack(spacing: 5) {
-                // 表头：周一 … 周日
-                HStack(spacing: 4) {
-                    Color.clear.frame(width: 30, height: 1)
-                    ForEach(0..<7, id: \.self) { day in
-                        Text(SemesterCalculator.weekdayColumnNames[day])
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Palette.secondaryText)
-                            .frame(maxWidth: .infinity)
-                    }
+    private var scheduleLinksCard: some View {
+        SettingsCard(title: "课表",
+                     caption: "两张表互相独立：各自设置每日节数、上下课时间、固定或按周目轮换，也可以单独关闭。") {
+            ForEach(ScheduleKind.allCases, id: \.self) { kind in
+                NavigationLink(value: kind) {
+                    scheduleLinkRow(kind)
                 }
+                .buttonStyle(.plain)
 
-                ForEach(0..<settings.scheduleRowCount, id: \.self) { row in
-                    HStack(spacing: 4) {
-                        Text("\(row + 1)周")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Palette.orangeDeep)
-                            .frame(width: 30, alignment: .leading)
-
-                        ForEach(0..<7, id: \.self) { day in
-                            scheduleCell(row: row, day: day)
-                        }
-                    }
+                if kind != ScheduleKind.allCases.last {
+                    Divider().overlay(Palette.line)
                 }
             }
         }
     }
 
-    private func scheduleCell(row: Int, day: Int) -> some View {
-        let subject = settings.subject(row: row, day: day)
-        let isToday = isCurrentCell(row: row, day: day)
+    private func scheduleLinkRow(_ kind: ScheduleKind) -> some View {
+        let table = settings.table(kind)
+        return HStack(spacing: 12) {
+            Image(systemName: kind == .regular ? "sun.max" : "moon.stars")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(table.enabled ? Palette.accent : Palette.faintText)
+                .frame(width: 24)
 
-        return Button {
-            editingCell = ScheduleCellID(row: row, day: day)
-        } label: {
-            Text(subject.isEmpty ? "·" : subject)
-                .font(.system(size: 11, weight: subject.isEmpty ? .regular : .semibold, design: .rounded))
-                .foregroundStyle(subject.isEmpty ? Palette.secondaryText : Palette.orangeDeep)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .frame(height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(subject.isEmpty ? Palette.orangeSoft.opacity(0.35) : Palette.orangeSoft)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(isToday ? Palette.orange : Color.clear, lineWidth: 1.5)
-                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kind.label)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Palette.primaryText)
+
+                Text(scheduleSummary(kind))
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(Palette.secondaryText)
+            }
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Palette.faintText)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("第 \(row + 1) 周 \(SemesterCalculator.weekdayShortNames[day])\(subject.isEmpty ? "无课" : subject)")
+        .contentShape(Rectangle())
+        .padding(.vertical, 4)
     }
 
-    /// 这一格是不是「今天」——用来描个橙色边框，方便对上号。
-    private func isCurrentCell(row: Int, day: Int) -> Bool {
-        guard case .inSession(let info) = todayPhase else { return false }
-        return info.scheduleRowIndex == row && SemesterCalculator.dayIndexInWeek(for: Date()) == day
+    private func scheduleSummary(_ kind: ScheduleKind) -> String {
+        let table = settings.table(kind)
+        guard table.enabled else { return "已关闭" }
+        var parts: [String] = []
+        parts.append(table.rotatesByWeek ? "按周目轮换" : "固定")
+        let counts = Set(table.periodsPerDay)
+        if counts.count == 1, let only = counts.first {
+            parts.append("每天 \(only) 节")
+        } else {
+            parts.append("每日节数不同")
+        }
+        parts.append(table.hasAnyTime ? "已填时间" : "未填时间")
+        return parts.joined(separator: " · ")
     }
 
-    private var scheduleCaption: String {
-        if !settings.cyclingEnabled {
-            return "未开启周目循环，课表按同一份每周重复。每格点一下可以填科目。"
+    // MARK: - 灵动岛
+
+    private var liveActivityCard: some View {
+        SettingsCard(title: "灵动岛提醒", caption: liveActivityCaption) {
+            Toggle(isOn: $settings.liveActivityEnabled) {
+                Text("启用灵动岛提醒")
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.primaryText)
+            }
+            .tint(Palette.accent)
+
+            if settings.liveActivityEnabled {
+                Divider().overlay(Palette.line)
+
+                HStack(spacing: 10) {
+                    Image(systemName: settings.todayHasTimes ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(settings.todayHasTimes ? Palette.rest : Palette.warning)
+
+                    Text(settings.todayHasTimes
+                         ? "今天的课已填时间，提醒可用。"
+                         : "今天没有可用的上课时间，提醒不会触发。")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(Palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
+                }
+            }
         }
-        return "共 \(settings.scheduleRowCount) 排，分别对应周目 1 到 \(settings.scheduleRowCount)。每格只有「无」和「自定义」两种，点一下就能改。"
+    }
+
+    private var liveActivityCaption: String {
+        "只在每节课上课前 5 分钟和下课前 5 分钟提醒，提醒里会写下节课名和距离上课还剩多久。" +
+        "没填上下课时间的节次无法参与提醒。"
     }
 
     // MARK: - 预览
@@ -228,7 +261,21 @@ struct SettingsView: View {
 
                 Text(previewText)
                     .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(Palette.orange)
+                    .foregroundStyle(Palette.accent)
+            }
+
+            Divider().overlay(Palette.line)
+
+            HStack {
+                Text("圈内")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundStyle(Palette.secondaryText)
+
+                Spacer(minLength: 12)
+
+                Text(ringPreview)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(Palette.accentDeep)
             }
         }
     }
@@ -242,13 +289,22 @@ struct SettingsView: View {
         }
     }
 
+    private var ringPreview: String {
+        let content = ClassSchedule.ringContent(
+            at: Date(),
+            tables: [.regular: settings.regular, .evening: settings.evening],
+            displayWeek: settings.displayWeek()
+        )
+        return "\(content.caption) · \(content.subject)"
+    }
+
     private var todayPhase: SemesterPhase {
         SemesterCalculator.phase(startDate: settings.startDate,
                                  cycleWeeks: settings.cycleWeeks,
                                  cyclingEnabled: settings.cyclingEnabled)
     }
 
-    // MARK: - 重新引导
+    // MARK: - 重新引导 / 页脚
 
     private var resetButton: some View {
         Button {
@@ -256,18 +312,18 @@ struct SettingsView: View {
         } label: {
             Text("下次启动时重新显示开学设置")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(Palette.orangeDeep)
+                .foregroundStyle(Palette.accentDeep)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Palette.orangeSoft.opacity(0.5))
+                        .fill(Palette.accentSoft.opacity(0.5))
                 )
         }
         .buttonStyle(.plain)
     }
 
-    private var copyright: some View {
+    private var footnote: some View {
         Text("每年 1 月和 7 月（放假开始月）的首次启动会自动弹出本页，方便设置新学期的开学日期。")
             .font(.system(size: 12, design: .rounded))
             .foregroundStyle(Palette.secondaryText)
@@ -277,154 +333,6 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - 卡片容器
-
-private struct SettingsCard<Content: View>: View {
-    let title: String
-    let caption: String?
-    let content: Content
-
-    init(title: String,
-         caption: String? = nil,
-         @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.caption = caption
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(Palette.orangeDeep)
-
-            content
-
-            if let caption {
-                Text(caption)
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Palette.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Palette.card)
-                .shadow(color: Palette.orange.opacity(0.08), radius: 14, x: 0, y: 6)
-        )
-    }
-}
-
-// MARK: - 单格科目编辑
-
-/// 课表里的一格（第几排、周几）。
-struct ScheduleCellID: Identifiable, Equatable {
-    let row: Int
-    let day: Int
-    var id: String { "\(row)-\(day)" }
-}
-
-/// 编辑一格的科目：只有「无」和「自定义」两个选项。
-private struct SubjectEditorView: View {
-    @EnvironmentObject private var settings: AppSettings
-    @Environment(\.dismiss) private var dismiss
-
-    let row: Int
-    let day: Int
-
-    @State private var isCustom = false
-    @State private var text = ""
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        ZStack {
-            Palette.background.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                header
-
-                ScrollView {
-                    VStack(spacing: 16) {
-                        SettingsCard(title: "科目") {
-                            Picker("科目", selection: $isCustom) {
-                                Text("无").tag(false)
-                                Text("自定义").tag(true)
-                            }
-                            .pickerStyle(.segmented)
-
-                            if isCustom {
-                                TextField("例如：数学", text: $text)
-                                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                                    .foregroundStyle(Palette.primaryText)
-                                    .focused($isFocused)
-                                    .submitLabel(.done)
-                                    .onSubmit(save)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 11)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(Palette.background)
-                                    )
-                            }
-                        }
-
-                        Button(action: save) {
-                            Text("保存")
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Capsule().fill(Palette.orange))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 28)
-                }
-            }
-        }
-        .onAppear {
-            let existing = settings.subject(row: row, day: day)
-            isCustom = !existing.isEmpty
-            text = existing
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("第 \(row + 1) 周 · \(SemesterCalculator.weekdayShortNames[day])")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(Palette.primaryText)
-                Text("这一节是什么科目")
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Palette.secondaryText)
-            }
-
-            Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Text("取消")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Palette.secondaryText)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 14)
-    }
-
-    private func save() {
-        settings.setSubject(isCustom ? text : "", row: row, day: day)
-        dismiss()
-    }
-}
-
 #Preview {
-    SettingsView()
-        .environmentObject(AppSettings())
+    SettingsView().environmentObject(AppSettings())
 }

@@ -32,20 +32,52 @@ enum SharedStorage {
         static let startDate = "semester.startDate"
         static let cycleWeeks = "semester.cycleWeeks"
         static let cyclingEnabled = "semester.cyclingEnabled"
-        static let schedule = "schedule.subjects"
         static let hasLaunched = "app.hasCompletedFirstLaunch"
         static let promptMonth = "app.lastSetupPromptMonth"
+
+        /// v1.3 新增
+        static let themeMode = "app.themeMode"
+        static let liveActivityEnabled = "app.liveActivityEnabled"
+
+        /// v1.2 的扁平课表（迁移用，不再写入）
+        static let legacySchedule = "schedule.subjects"
     }
 
-    /// 课表格子的 key。
-    static func scheduleKey(row: Int, day: Int) -> String { "\(row)-\(day)" }
+    // MARK: - 快照
 
-    /// 小组件侧读取的一份设置快照（App 侧用 AppSettings，那个负责写）。
+    /// 小组件 / 实时活动侧读取的一份设置快照（App 侧用 AppSettings，那个负责写）。
     struct Snapshot {
         var startDate: Date?
         var cycleWeeks: Int
         var cyclingEnabled: Bool
-        var schedule: [String: String]
+        var themeMode: ThemeMode
+        var regular: ScheduleTable
+        var evening: ScheduleTable
+
+        init(startDate: Date?,
+                    cycleWeeks: Int,
+                    cyclingEnabled: Bool,
+                    themeMode: ThemeMode = .system,
+                    regular: ScheduleTable = .empty(),
+                    evening: ScheduleTable = .empty()) {
+            self.startDate = startDate
+            self.cycleWeeks = cycleWeeks
+            self.cyclingEnabled = cyclingEnabled
+            self.themeMode = themeMode
+            self.regular = regular
+            self.evening = evening
+        }
+
+        func table(_ kind: ScheduleKind) -> ScheduleTable {
+            switch kind {
+            case .regular: return regular
+            case .evening: return evening
+            }
+        }
+
+        var tables: [ScheduleKind: ScheduleTable] {
+            [.regular: regular, .evening: evening]
+        }
 
         func phase(for date: Date) -> SemesterPhase? {
             guard let startDate else { return nil }
@@ -55,13 +87,25 @@ enum SharedStorage {
                                             referenceDate: date)
         }
 
-        /// 今天要上的科目；空字符串表示无课。
-        func subject(for date: Date) -> String {
-            guard case .inSession(let info)? = phase(for: date) else { return "" }
-            let day = SemesterCalculator.dayIndexInWeek(for: date)
-            return schedule[SharedStorage.scheduleKey(row: info.scheduleRowIndex, day: day)] ?? ""
+        /// 今天显示第几周（不在学期内返回 nil）。
+        func displayWeek(for date: Date) -> Int? {
+            guard case .inSession(let info)? = phase(for: date) else { return nil }
+            return info.displayWeek
+        }
+
+        /// 今天按时间轴排好的课程（两张表合并）。
+        func classes(for date: Date) -> [ScheduledClass] {
+            guard let week = displayWeek(for: date) else { return [] }
+            return ClassSchedule.classes(for: date, tables: tables, displayWeek: week)
+        }
+
+        /// 此刻的状态。
+        func state(at date: Date) -> ClassState {
+            ClassSchedule.state(at: date, classes: classes(for: date))
         }
     }
+
+    // MARK: - 读取
 
     static func load() -> Snapshot {
         let store = defaults
@@ -70,9 +114,22 @@ enum SharedStorage {
         let storedCycle = store.integer(forKey: Key.cycleWeeks)
         let cycle = SemesterCalculator.cycleWeeksRange.contains(storedCycle) ? storedCycle : 3
 
-        return Snapshot(startDate: interval > 0 ? Date(timeIntervalSince1970: interval) : nil,
-                        cycleWeeks: cycle,
-                        cyclingEnabled: store.object(forKey: Key.cyclingEnabled) as? Bool ?? true,
-                        schedule: store.dictionary(forKey: Key.schedule) as? [String: String] ?? [:])
+        return Snapshot(
+            startDate: interval > 0 ? Date(timeIntervalSince1970: interval) : nil,
+            cycleWeeks: cycle,
+            cyclingEnabled: store.object(forKey: Key.cyclingEnabled) as? Bool ?? true,
+            themeMode: ThemeMode(rawValue: store.string(forKey: Key.themeMode) ?? "") ?? .system,
+            regular: ScheduleTable.decode(store.string(forKey: ScheduleKind.regular.storageKey)),
+            evening: ScheduleTable.decode(store.string(forKey: ScheduleKind.evening.storageKey))
+        )
+    }
+
+    // MARK: - 写入（小组件侧不用，但实时活动结束回调可能用到）
+
+    static func save(tables: [ScheduleKind: ScheduleTable]) {
+        let store = defaults
+        for (kind, table) in tables {
+            store.set(table.encoded(), forKey: kind.storageKey)
+        }
     }
 }

@@ -2,6 +2,7 @@
 // 用法：swiftc -O Tools/CalculatorCheck/main.swift ZhouMu/Models/SemesterCalculator.swift ZhouMu/Models/AppSettings.swift -o /tmp/zhoumu-check && /tmp/zhoumu-check
 import Combine
 import Foundation
+import SwiftUI
 
 var failures = 0
 var checks = 0
@@ -264,61 +265,251 @@ if let info = session(SemesterCalculator.phase(startDate: start,
     expectEqual(info.scheduleRowIndex, 0, "关闭循环时固定用课表第 1 排")
 }
 
-// MARK: - 11. 课表存取
+// MARK: - 11. 两张课表：存取、持久化、每日节数、时间
 
-print("\n[11] 课表存取与持久化")
+print("\n[11] 课表数据模型")
+
+/// 造一个某天某时刻的 Date。
+func at(_ y: Int, _ mo: Int, _ d: Int, _ hh: Int, _ mm: Int) -> Date {
+    SemesterCalculator.calendar.date(from: DateComponents(year: y, month: mo, day: d,
+                                                          hour: hh, minute: mm))!
+}
+
 let scheduleSuite = "zhoumu.check.schedule.\(UUID().uuidString)"
 let scheduleDefaults = UserDefaults(suiteName: scheduleSuite)!
 scheduleDefaults.removePersistentDomain(forName: scheduleSuite)
-let scheduleSettings = AppSettings(defaults: scheduleDefaults)
+let s = AppSettings(defaults: scheduleDefaults)
 
-expect(!scheduleSettings.hasAnySubject, "初始没有课表")
-expectEqual(scheduleSettings.scheduleRowCount, 3, "默认循环 3 周 → 课表 3 排")
-expectEqual(scheduleSettings.subject(row: 0, day: 0), "", "空格子返回空字符串（= 无）")
+// 默认状态
+expectEqual(s.regular.enabled, false, "默认关闭正课表（老用户不该被一张空表打扰）")
+expectEqual(s.evening.enabled, true, "默认启用晚课表")
+expectEqual(s.regular.periodCount(day: 0), ScheduleTable.defaultPeriods, "默认每天 8 节")
+expectEqual(s.regular.rotatesByWeek, true, "默认按周目轮换")
 
-scheduleSettings.setSubject("数学", row: 0, day: 0)
-scheduleSettings.setSubject("  语文  ", row: 1, day: 2)
-expectEqual(scheduleSettings.subject(row: 0, day: 0), "数学", "第 1 排周一 = 数学")
-expectEqual(scheduleSettings.subject(row: 1, day: 2), "语文", "首尾空格自动去掉")
-expect(scheduleSettings.hasAnySubject, "填过之后 hasAnySubject 为真")
+// 科目读写
+s.setSubject("数学", kind: .evening, row: 0, day: 0, period: 0)
+s.setSubject("  语文  ", kind: .evening, row: 1, day: 2, period: 1)
+expectEqual(s.subject(.evening, row: 0, day: 0, period: 0), "数学", "第 1 排周一第 1 节 = 数学")
+expectEqual(s.subject(.evening, row: 1, day: 2, period: 1), "语文", "首尾空格自动去掉")
+expect(s.evening.hasAnySubject, "填过之后 hasAnySubject 为真")
 
-scheduleSettings.setSubject("", row: 0, day: 0)
-expectEqual(scheduleSettings.subject(row: 0, day: 0), "", "设为「无」后该格清空")
+s.setSubject("", kind: .evening, row: 0, day: 0, period: 0)
+expectEqual(s.subject(.evening, row: 0, day: 0, period: 0), "", "设为「无」后清空")
+s.setSubject("   ", kind: .evening, row: 4, day: 5, period: 2)
+expectEqual(s.subject(.evening, row: 4, day: 5, period: 2), "", "只有空白也算「无」")
 
-scheduleSettings.setSubject("   ", row: 4, day: 5)
-expectEqual(scheduleSettings.subject(row: 4, day: 5), "", "只有空白也算「无」")
+// 两张表互不干扰
+s.setSubject("历史", kind: .regular, row: 0, day: 0, period: 0)
+expectEqual(s.subject(.regular, row: 0, day: 0, period: 0), "历史", "正课表独立存储")
+expectEqual(s.subject(.evening, row: 0, day: 0, period: 0), "", "晚课表不受正课表影响")
 
-scheduleSettings.setSubject("数学", row: 0, day: 0)
+// 持久化往返
+s.setSubject("数学", kind: .evening, row: 0, day: 0, period: 0)
 let reloadedSchedule = AppSettings(defaults: scheduleDefaults)
-expectEqual(reloadedSchedule.subject(row: 0, day: 0), "数学", "课表已持久化（第 1 排）")
-expectEqual(reloadedSchedule.subject(row: 1, day: 2), "语文", "课表已持久化（第 2 排）")
+expectEqual(reloadedSchedule.subject(.evening, row: 0, day: 0, period: 0), "数学", "晚课表已持久化")
+expectEqual(reloadedSchedule.subject(.regular, row: 0, day: 0, period: 0), "历史", "正课表已持久化")
 
-scheduleSettings.cyclingEnabled = false
-expectEqual(scheduleSettings.scheduleRowCount, 1, "关闭循环后课表只剩 1 排")
+// 排数：轮换 vs 固定
+expectEqual(s.evening.rowCount(cycleWeeks: 3), 3, "轮换时 3 排")
+var fixedTable = s.regular
+fixedTable.rotatesByWeek = false
+expectEqual(fixedTable.rowCount(cycleWeeks: 3), 1, "固定时只有 1 排")
+expectEqual(fixedTable.rowCount(cycleWeeks: 20), 1, "固定时排数不随循环周数变")
 
-// MARK: - 12. 今天该显示哪一科
+// 每日节数独立可调 + 上下限夹紧
+var perDay = ScheduleTable.empty()
+perDay.periodsPerDay = [1, 2, 3, 4, 5, 6, 7]
+perDay.normalize()
+expectEqual(perDay.periodCount(day: 0), 1, "周一 1 节")
+expectEqual(perDay.periodCount(day: 6), 7, "周日 7 节")
+perDay.periodsPerDay = [99, 0, 3, 3, 3, 3, 3]
+perDay.normalize()
+expectEqual(perDay.periodCount(day: 0), ScheduleTable.maxPeriods, "节数上限夹到 12")
+expectEqual(perDay.periodCount(day: 1), ScheduleTable.minPeriods, "节数下限夹到 1")
 
-print("\n[12] 今天取哪一格的科目")
-let todaySuite = "zhoumu.check.today.\(UUID().uuidString)"
-let todayDefaults = UserDefaults(suiteName: todaySuite)!
-todayDefaults.removePersistentDomain(forName: todaySuite)
-let todaySettings = AppSettings(defaults: todayDefaults)
+// 时间可选 + 合法性
+expect(!s.evening.hasAnyTime, "没填过时间 → hasAnyTime 为假")
+var timed = ScheduleTable.empty()
+timed.periodTimes = [PeriodTime(start: 8 * 60, end: 8 * 60 + 45),
+                     nil,
+                     PeriodTime(start: 10 * 60, end: 9 * 60)]
+timed.normalize()
+expect(timed.hasAnyTime, "填了一节合法时间 → hasAnyTime 为真")
+expectEqual(timed.time(forPeriod: 1) == nil, true, "nil 的那节取不到时间")
+expectEqual(timed.time(forPeriod: 2) == nil, true, "end <= start 的非法时间被忽略")
 
-// 2026-09-14 是周一，用它当开学日
-let monday = day(2026, 9, 14)
-todaySettings.startDate = monday
-todaySettings.cycleWeeks = 3
-todaySettings.cyclingEnabled = true
-todaySettings.setSubject("体育", row: 0, day: 0)   // 第 1 排周一
-todaySettings.setSubject("美术", row: 1, day: 0)   // 第 2 排周一
+// MARK: - 12. 两张表合并成时间轴 + 状态机
 
-expectEqual(todaySettings.subjectForToday(referenceDate: monday), "体育", "开学当天（周一）取第 1 排周一")
-expectEqual(todaySettings.subjectForToday(referenceDate: day(2026, 9, 15)), "", "周二没填 → 无课")
-expectEqual(todaySettings.subjectForToday(referenceDate: day(2026, 9, 21)), "美术", "开学第 2 周周一 → 第 2 排")
-// 开学第 4 周（差 21 天）按循环又回到第 1 周
-expectEqual(todaySettings.subjectForToday(referenceDate: day(2026, 10, 5)), "体育", "开学第 4 周 → 循环回第 1 排")
-// 开学前
-expectEqual(todaySettings.subjectForToday(referenceDate: day(2026, 9, 7)), "", "开学前不取课表")
+print("\n[12] 时间轴合并与状态机")
+
+// 2026-09-14 是周一
+let mondayDate = day(2026, 9, 14)
+let mondayNoon = at(2026, 9, 14, 12, 0)
+
+var reg = ScheduleTable(enabled: true, rotatesByWeek: false,
+                        periodsPerDay: [3, 3, 3, 3, 3, 0, 0],
+                        periodTimes: [PeriodTime(start: 8 * 60, end: 8 * 60 + 45),
+                                      PeriodTime(start: 9 * 60, end: 9 * 60 + 45),
+                                      PeriodTime(start: 10 * 60, end: 10 * 60 + 45)],
+                        subjects: [:])
+reg.setSubject("数学", row: 0, day: 0, period: 0)
+reg.setSubject("语文", row: 0, day: 0, period: 1)
+reg.setSubject("英语", row: 0, day: 0, period: 2)
+
+var eve = ScheduleTable(enabled: true, rotatesByWeek: true,
+                        periodsPerDay: Array(repeating: 1, count: 7),
+                        periodTimes: [PeriodTime(start: 19 * 60, end: 20 * 60)],
+                        subjects: [:])
+eve.setSubject("晚自习", row: 0, day: 0, period: 0)
+eve.setSubject("晚自习二号", row: 1, day: 0, period: 0)
+
+let merged = ClassSchedule.classes(for: mondayDate,
+                                   tables: [.regular: reg, .evening: eve],
+                                   displayWeek: 1)
+expectEqual(merged.count, 4, "正课 3 节 + 晚课 1 节 = 4 节")
+expectEqual(merged.first?.subject, "数学", "第一节课是数学")
+expectEqual(merged.last?.subject, "晚自习", "最后一节是晚自习（时间最晚）")
+expect(merged[0].start < merged[1].start, "按时间升序排列")
+
+// 固定表在任意周目都取第 0 排
+let mergedWeek3 = ClassSchedule.classes(for: mondayDate,
+                                        tables: [.regular: reg, .evening: eve],
+                                        displayWeek: 3)
+expectEqual(mergedWeek3.filter { $0.kind == .regular }.count, 3, "固定表在第 3 周目仍有 3 节正课")
+expectEqual(mergedWeek3.filter { $0.kind == .regular }.first?.subject, "数学", "固定表不随周目变")
+// 轮换表：第 2 周目取第 2 排（填了「晚自习二号」），第 3 排没填所以第 3 周目无晚课
+let mergedWeek2 = ClassSchedule.classes(for: mondayDate,
+                                        tables: [.regular: reg, .evening: eve],
+                                        displayWeek: 2)
+expectEqual(mergedWeek2.filter { $0.kind == .evening }.first?.subject, "晚自习二号",
+            "轮换表第 2 周目取第 2 排")
+expectEqual(mergedWeek3.filter { $0.kind == .evening }.count, 0,
+            "轮换表第 3 周目取第 3 排（那排没填 → 无晚课）")
+
+// 关闭某张表就不参与合并
+var eveOff = eve
+eveOff.enabled = false
+let mergedOff = ClassSchedule.classes(for: mondayDate,
+                                      tables: [.regular: reg, .evening: eveOff],
+                                      displayWeek: 1)
+expectEqual(mergedOff.count, 3, "关闭晚课表后只剩 3 节")
+expectEqual(mergedOff.filter { $0.kind == .evening }.count, 0, "关闭的表完全不出现")
+
+// 状态机
+let stateBefore = ClassSchedule.state(at: at(2026, 9, 14, 7, 0), classes: merged)
+if case .beforeSchool(let next) = stateBefore {
+    expectEqual(next.subject, "数学", "7:00 还没上课，下一节是数学")
+} else {
+    expect(false, "7:00 应该是 beforeSchool")
+}
+
+let stateIn = ClassSchedule.state(at: at(2026, 9, 14, 8, 20), classes: merged)
+if case .inClass(let cur, let nxt) = stateIn {
+    expectEqual(cur.subject, "数学", "8:20 正在上数学")
+    expectEqual(nxt?.subject, "语文", "下一节是语文")
+} else {
+    expect(false, "8:20 应该是 inClass")
+}
+expectEqual(stateIn.ringProgress(at: at(2026, 9, 14, 8, 20)), 20.0 / 45.0, "环进度 = 20/45")
+
+let stateRest = ClassSchedule.state(at: at(2026, 9, 14, 8, 50), classes: merged)
+if case .resting(let ended, let next) = stateRest {
+    expectEqual(ended.subject, "数学", "课间：刚结束的是数学")
+    expectEqual(next.subject, "语文", "课间：下一节是语文")
+} else {
+    expect(false, "8:50 应该是课间")
+}
+expectEqual(stateRest.ringProgress(at: at(2026, 9, 14, 8, 50)), 1.0, "课间环闭合（=1）")
+
+let stateDone = ClassSchedule.state(at: at(2026, 9, 14, 21, 0), classes: merged)
+if case .finished(let last) = stateDone {
+    expectEqual(last.subject, "晚自习", "21:00 全部上完，最后一节是晚自习")
+} else {
+    expect(false, "21:00 应该是 finished")
+}
+expectEqual(stateDone.ringProgress(at: at(2026, 9, 14, 21, 0)), 1.0, "完课后环闭合")
+
+// MARK: - 13. 圈内容：有时间轴 vs 没时间回退晚课
+
+print("\n[13] 首页圈内容")
+
+// 有时间轴：上课中显示当前科目
+let contentIn = ClassSchedule.ringContent(at: at(2026, 9, 14, 8, 20),
+                                          tables: [.regular: reg, .evening: eve],
+                                          displayWeek: 1)
+expectEqual(contentIn.subject, "数学", "上课中圈内显示当前科目")
+expectEqual(contentIn.caption, "周一", "上课中圈内小字是周几")
+expect(contentIn.countdown.untilCurrentEnd != nil, "上课中「这节还剩」有值")
+expectEqual(contentIn.countdown.nextSubject, "语文", "「下节」是语文")
+expectEqual(Int(contentIn.countdown.untilCurrentEnd ?? 0), 25 * 60, "距下课 25 分钟")
+
+// 没时间轴：回退到当日晚课
+// 注意：必须【两张表都没时间】才算「排不出时间轴」，所以这里把正课表也关掉。
+var eveNoTime = eve
+eveNoTime.periodTimes = [nil]
+var regOffForFallback = reg
+regOffForFallback.enabled = false
+let fallback = ClassSchedule.ringContent(at: mondayNoon,
+                                         tables: [.regular: regOffForFallback, .evening: eveNoTime],
+                                         displayWeek: 1)
+expectEqual(fallback.subject, "晚自习", "没填时间 → 圈内显示当天晚课表的科目")
+expectEqual(fallback.caption, "当日晚课", "没填时间 → 小字标「当日晚课」")
+expectEqual(fallback.progress, 0.0, "没填时间 → 环不填充")
+expect(fallback.countdown.isEmpty, "没填时间 → 三行倒计时全空")
+
+// 晚课表也关了 → 无课
+var eveOff2 = eveNoTime
+eveOff2.enabled = false
+let noClass = ClassSchedule.ringContent(at: mondayNoon,
+                                        tables: [.regular: regOffForFallback, .evening: eveOff2],
+                                        displayWeek: 1)
+expectEqual(noClass.subject, "无课", "两张表都没得用 → 无课")
+
+// MARK: - 14. v1.2 → v1.3 迁移
+
+print("\n[14] 旧课表迁移")
+
+let legacy = ["0-0": "体育", "1-2": "美术", "2-6": "音乐"]
+if let migrated = ScheduleMigration.eveningTable(fromLegacy: legacy) {
+    expectEqual(migrated.enabled, true, "迁移后的晚课表默认启用")
+    expectEqual(migrated.rotatesByWeek, true, "v1.2 课表本来就是轮换的")
+    expectEqual(migrated.periodCount(day: 0), 1, "迁移后每天 1 节")
+    expectEqual(migrated.subject(row: 0, day: 0, period: 0), "体育", "第 1 排周一迁移正确")
+    expectEqual(migrated.subject(row: 1, day: 2, period: 0), "美术", "第 2 排周三迁移正确")
+    expectEqual(migrated.subject(row: 2, day: 6, period: 0), "音乐", "第 3 排周日迁移正确")
+    expect(!migrated.hasAnyTime, "迁移后没有时间（灵动岛不可用，符合预期）")
+} else {
+    expect(false, "迁移不该返回 nil")
+}
+expectEqual(ScheduleMigration.eveningTable(fromLegacy: [:]) == nil, true, "空课表不迁移")
+
+// 端到端：旧数据写进 defaults，AppSettings 应自动迁到晚课表
+let legacySuite = "zhoumu.check.legacy.\(UUID().uuidString)"
+let legacyDefaults = UserDefaults(suiteName: legacySuite)!
+legacyDefaults.removePersistentDomain(forName: legacySuite)
+legacyDefaults.set(Date(timeIntervalSince1970: 1_700_000_000), forKey: SharedStorage.Key.startDate)
+legacyDefaults.set(legacy, forKey: SharedStorage.Key.legacySchedule)
+let migratedSettings = AppSettings(defaults: legacyDefaults)
+expectEqual(migratedSettings.evening.subject(row: 0, day: 0, period: 0), "体育",
+            "AppSettings 启动时自动把旧课表迁进晚课表")
+expectEqual(migratedSettings.regular.hasAnySubject, false, "迁移只影响晚课表")
+
+// MARK: - 15. 主题模式
+
+print("\n[15] 主题模式")
+
+let themeSuite = "zhoumu.check.theme.\(UUID().uuidString)"
+let themeDefaults = UserDefaults(suiteName: themeSuite)!
+themeDefaults.removePersistentDomain(forName: themeSuite)
+let themeSettings = AppSettings(defaults: themeDefaults)
+expectEqual(themeSettings.themeMode, ThemeMode.system, "默认跟随系统")
+themeSettings.themeMode = .dark
+let reloadedTheme = AppSettings(defaults: themeDefaults)
+expectEqual(reloadedTheme.themeMode, ThemeMode.dark, "主题模式已持久化")
+expectEqual(ThemeMode.allCases.count, 3, "三态：跟随系统 / 浅色 / 深色")
+expectEqual(ThemeMode.system.colorScheme == nil, true, "跟随系统时 preferredColorScheme 传 nil")
+expectEqual(ThemeMode.light.colorScheme, ColorScheme.light, "浅色映射正确")
+expectEqual(ThemeMode.dark.colorScheme, ColorScheme.dark, "深色映射正确")
 
 // MARK: - 汇总
 

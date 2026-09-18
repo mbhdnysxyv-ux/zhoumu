@@ -68,9 +68,13 @@ struct WeekProvider: AppIntentTimelineProvider {
         // 1) 先看 App 写的共享容器
         let snapshot = SharedStorage.load()
         if snapshot.startDate != nil {
+            // 和 App 首页用同一套逻辑：有时间轴取当前科目，没时间回退到当日晚课。
+            let content = ClassSchedule.ringContent(at: date,
+                                                    tables: snapshot.tables,
+                                                    displayWeek: snapshot.displayWeek(for: date))
             return WeekEntry(date: date,
                              phase: snapshot.phase(for: date),
-                             subject: snapshot.subject(for: date),
+                             subject: content.subject,
                              isFromApp: true)
         }
 
@@ -127,18 +131,18 @@ struct WeekWidgetEntryView: View {
                 if entry.isFromApp {
                     Text(subjectText)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(Palette.orange)
+                        .foregroundStyle(Palette.accent)
                         .lineLimit(2)
                         .minimumScaleFactor(0.5)
                         .multilineTextAlignment(.center)
 
                     Text("第 \(info.displayWeek) 周")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Palette.orangeDeep)
+                        .foregroundStyle(Palette.accentDeep)
                 } else {
                     Text("第 \(info.displayWeek) 周")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(Palette.orange)
+                        .foregroundStyle(Palette.accent)
                     Text(subtitle(for: info))
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(Palette.secondaryText)
@@ -151,7 +155,7 @@ struct WeekWidgetEntryView: View {
             VStack(spacing: 5) {
                 Text("未开学")
                     .font(.system(size: 21, weight: .bold, design: .rounded))
-                    .foregroundStyle(Palette.orange)
+                    .foregroundStyle(Palette.accent)
                 Text("还有 \(days) 天")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.secondaryText)
@@ -173,14 +177,14 @@ struct WeekWidgetEntryView: View {
                             .foregroundStyle(Palette.secondaryText)
                         Text(subjectText)
                             .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .foregroundStyle(Palette.orange)
+                            .foregroundStyle(Palette.accent)
                             .lineLimit(2)
                             .minimumScaleFactor(0.5)
                     }
                 } else {
                     Text(subjectText)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(Palette.orange)
+                        .foregroundStyle(Palette.accent)
                 }
 
                 Spacer(minLength: 0)
@@ -195,7 +199,7 @@ struct WeekWidgetEntryView: View {
                         Text("周")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                     }
-                    .foregroundStyle(Palette.orangeDeep)
+                    .foregroundStyle(Palette.accentDeep)
 
                     if info.isCycling && info.cycleWeeks <= 12 {
                         CycleDots(total: info.cycleWeeks, current: info.displayWeek)
@@ -213,7 +217,7 @@ struct WeekWidgetEntryView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("未开学")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(Palette.orange)
+                    .foregroundStyle(Palette.accent)
                 Text("距离设定的开学日期还有 \(days) 天")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.secondaryText)
@@ -228,7 +232,7 @@ struct WeekWidgetEntryView: View {
         VStack(spacing: 6) {
             Text("第 ? 周")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(Palette.orangeSoft)
+                .foregroundStyle(Palette.accentSoft)
             Text("打开「周目」App 设置开学日期\n或长按小组件 ▸ 编辑小组件")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Palette.secondaryText)
@@ -261,7 +265,7 @@ private struct CycleDots: View {
         HStack(spacing: 4) {
             ForEach(Array(1...max(total, 1)), id: \.self) { index in
                 Circle()
-                    .fill(index == current ? Palette.orange : Palette.orangeSoft)
+                    .fill(index == current ? Palette.accent : Palette.accentSoft)
                     .frame(width: index == current ? 8 : 6,
                        height: index == current ? 8 : 6)
             }
